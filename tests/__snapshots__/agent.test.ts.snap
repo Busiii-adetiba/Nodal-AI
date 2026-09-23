@@ -10,6 +10,17 @@ exports[`AgentResult snapshot > AgentResult has expected shape on failure 1`] = 
 }
 `;
 
+exports[`AgentResult snapshot > AgentResult has expected shape on soroban_invoke success 1`] = `
+{
+  "correlationId": "fixed-test-id-soroban-success",
+  "data": {
+    "txHash": "soroban_invoke_tx_hash",
+  },
+  "success": true,
+  "taskType": "soroban_invoke",
+}
+`;
+
 exports[`AgentResult snapshot > AgentResult has expected shape on success 1`] = `
 {
   "correlationId": "fixed-test-id-success",
@@ -20,5 +31,21 @@ exports[`AgentResult snapshot > AgentResult has expected shape on success 1`] = 
   },
   "success": true,
   "taskType": "stellar_payment",
+}
+`;
+
+exports[`AgentResult snapshot > AgentResult has expected shape on x402_respond success 1`] = `
+{
+  "correlationId": "fixed-test-id-x402-success",
+  "data": {
+    "network": "mainnet",
+    "nonce": "550e8400-e29b-41d4-a716-446655440000",
+    "payer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+    "protocol": "x402",
+    "signedAt": "2026-01-01T00:00:00.000Z",
+    "txHash": "x402_tx_hash",
+  },
+  "success": true,
+  "taskType": "x402_respond",
 }
 `;
