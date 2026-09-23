@@ -39,6 +39,7 @@ import { AnchorQuoteTool } from './tools/AnchorQuoteTool';
 import { SorobanDeployTool } from './tools/SorobanDeployTool';
 import { SwapTool } from './tools/SwapTool';
 import { AccountHistoryTool } from './tools/AccountHistoryTool';
+import { LedgerInfoTool } from './tools/LedgerInfoTool';
 import { listen as listenContractEvents } from './tools/ContractEventListener';
 
 import { horizonServer } from './rpc_client';
@@ -106,7 +107,8 @@ export type TaskType =
   | 'inflation'
   | 'soroban_deploy'
   | 'swap'
-  | 'account_history';
+  | 'account_history'
+  | 'ledger_info';
 
 export interface AgentTask {
   type: TaskType;
@@ -255,6 +257,7 @@ export class PayFiAgent extends EventEmitter {
   private sorobanDeployTool: SorobanDeployTool;
   private swapTool: SwapTool;
   private accountHistoryTool: AccountHistoryTool;
+  private ledgerInfoTool: LedgerInfoTool;
 
   private activeTasks = 0;
   private isDraining = false;
@@ -301,6 +304,7 @@ export class PayFiAgent extends EventEmitter {
     this.sorobanDeployTool = new SorobanDeployTool();
     this.swapTool = new SwapTool(config.agentKeypair().secret());
     this.accountHistoryTool = new AccountHistoryTool();
+    this.ledgerInfoTool = new LedgerInfoTool();
 
     // ── Register event listeners — every registration is mirrored in destroy() ──
     const onError = (err: Error) => {
@@ -693,6 +697,10 @@ export class PayFiAgent extends EventEmitter {
 
           case 'inflation':
             data = await this.inflationTool.execute(task.payload);
+            break;
+
+          case 'ledger_info':
+            data = await this.ledgerInfoTool.execute(task.payload);
             break;
 
           default:
