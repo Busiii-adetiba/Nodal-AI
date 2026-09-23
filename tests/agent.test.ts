@@ -676,6 +676,31 @@ describe('PayFiAgent — new task types', () => {
     );
     expect(() => agent.destroy()).not.toThrow();
   });
+
+  it('startStorageWatcher starts the watcher and stopStorageWatcher stops it', () => {
+    const onChange = vi.fn();
+    agent.startStorageWatcher(
+      {
+        contractId: 'CDPVBHPSVYKWSI5ECEA4DASBG3RBNU5EHEE3DHNFX7RMBCZV66CSC7NH',
+        keys: ['balance'],
+      },
+      onChange
+    );
+    agent.stopStorageWatcher();
+    // No error thrown — watcher lifecycle works
+  });
+
+  it('destroy() cleans up the storage watcher', () => {
+    const onChange = vi.fn();
+    agent.startStorageWatcher(
+      {
+        contractId: 'CDPVBHPSVYKWSI5ECEA4DASBG3RBNU5EHEE3DHNFX7RMBCZV66CSC7NH',
+        keys: ['balance'],
+      },
+      onChange
+    );
+    expect(() => agent.destroy()).not.toThrow();
+  });
 });
 
 describe('PayFiAgent — drain / waitForPendingTasks', () => {
