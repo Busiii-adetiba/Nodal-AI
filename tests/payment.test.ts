@@ -20,6 +20,7 @@ import { SubmitResultSchema } from '../backend/tools/StellarPaymentTool';
 import * as rpcClient from '../backend/rpc_client';
 import type { MockHorizonServer } from './fixtures/MockHorizonServer';
 import { makeMockAccount } from './fixtures/MockHorizonServer';
+import { applyConditions, reset as resetNetworkConditions } from './helpers/MockNetworkConditions';
 
 // ─── Shared MockHorizonServer fixture ────────────────────────────────────────
 // All Horizon/Soroban network calls are intercepted here. The async factory
@@ -771,3 +772,73 @@ describe('StellarPaymentTool — mutation-killing: destination key validation', 
     expect(result.ledger).toBe(5);
   });
 });
+
+describe('StellarPaymentTool — slow-network scenario with MockNetworkConditions (#443)', () => {
+  let tool: StellarPaymentTool;
+
+  beforeEach(() => {
+    mockHorizonServer.reset();
+    resetNetworkConditions();
+    tool = new StellarPaymentTool();
+  });
+
+  afterEach(() => {
+    resetNetworkConditions();
+  });
+
+  it('completes payment successfully under injected network latency', async () => {
+    applyConditions({
+      latencyMs: 50,
+      target: mockHorizonServer.submitTransaction,
+    });
+
+    const start = Date.now();
+    const result = await tool.execute({
+      destination: VALID_DEST,
+      amount: '10',
+      assetCode: 'XLM',
+    });
+    const elapsed = Date.now() - start;
+
+    expect(result.txHash).toBe('mock_tx_hash');
+    expect(result.ledger).toBe(1);
+    expect(elapsed).toBeGreaterThanOrEqual(40);
+  });
+
+  it('supports simulated latency with fake timers', async () => {
+    vi.useFakeTimers();
+    applyConditions({
+      latencyMs: 1500,
+      target: mockHorizonServer.submitTransaction,
+    });
+
+    const paymentPromise = tool.execute({
+      destination: VALID_DEST,
+      amount: '10',
+      assetCode: 'XLM',
+    });
+
+    await vi.advanceTimersByTimeAsync(1500);
+    const result = await paymentPromise;
+
+    expect(result.txHash).toBe('mock_tx_hash');
+    vi.useRealTimers();
+  });
+
+  it('rejects payment when network failure is injected', async () => {
+    applyConditions({
+      failureRate: 1,
+      errorType: 'HorizonTimeoutError',
+      target: mockHorizonServer.submitTransaction,
+    });
+
+    await expect(
+      tool.execute({
+        destination: VALID_DEST,
+        amount: '10',
+        assetCode: 'XLM',
+      })
+    ).rejects.toThrow(/HorizonTimeoutError/);
+  });
+});
+
