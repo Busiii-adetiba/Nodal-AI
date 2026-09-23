@@ -31,6 +31,23 @@ export const BatchPaymentInputSchema = z.object({
 
 export type BatchPaymentInput = z.infer<typeof BatchPaymentInputSchema>;
 
+// Stellar's smallest unit is the stroop (1 XLM = 10,000,000 stroops), matching
+// the network's 7-decimal-place amount precision. Summing in stroops (BigInt)
+// instead of parseFloat avoids floating-point rounding error accumulating
+// across up to 100 payment amounts.
+const STROOP_SCALE = 10_000_000n;
+
+function toStroops(decimal: string): bigint {
+  const [whole, fraction = ''] = decimal.split('.');
+  return BigInt(whole) * STROOP_SCALE + BigInt(fraction.padEnd(7, '0'));
+}
+
+function fromStroops(stroops: bigint): string {
+  const whole = stroops / STROOP_SCALE;
+  const fraction = stroops % STROOP_SCALE;
+  return `${whole}.${fraction.toString().padStart(7, '0')}`;
+}
+
 export interface BatchPaymentResult {
   txHash: string;
   ledger: number;
@@ -66,11 +83,11 @@ export class BatchPaymentTool {
     const { payments, failFast } = BatchPaymentInputSchema.parse(rawInput);
 
     // Aggregate spending limit check
-    const total = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
-    const limit = parseFloat(config.AGENT_SPENDING_LIMIT);
-    if (total > limit) {
+    const totalStroops = payments.reduce((sum, p) => sum + toStroops(p.amount), 0n);
+    const limitStroops = toStroops(config.AGENT_SPENDING_LIMIT);
+    if (totalStroops > limitStroops) {
       throw new Error(
-        `Batch total ${total} ${config.X402_ASSET_CODE} exceeds AGENT_SPENDING_LIMIT of ${config.AGENT_SPENDING_LIMIT}`
+        `Batch total ${fromStroops(totalStroops)} ${config.X402_ASSET_CODE} exceeds AGENT_SPENDING_LIMIT of ${config.AGENT_SPENDING_LIMIT}`
       );
     }
 
