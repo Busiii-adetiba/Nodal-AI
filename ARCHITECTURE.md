@@ -200,6 +200,7 @@ Every `TaskType` value accepted by `PayFiAgent.run()` is listed below, together 
 | `anchor_quote` | `AnchorQuoteTool` | Fetch an SEP-38 quote from an anchor for asset conversion. |
 | `inflation` | `InflationTool` | Set or query the account's inflation destination. |
 | `set_options` | `SetOptionsTool` | Manage account flags, thresholds, signers, and home domain via Stellar `setOptions` operation. |
+| `soroban_event_query` | `SorobanEventIndexerTool` | Query historical Soroban contract events by ledger range and topic filters. Read-only. |
 
 ### Lifecycle Hooks
 

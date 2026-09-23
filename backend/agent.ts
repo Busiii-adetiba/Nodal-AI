@@ -40,6 +40,7 @@ import { SorobanDeployTool } from './tools/SorobanDeployTool';
 import { SwapTool } from './tools/SwapTool';
 import { AccountHistoryTool } from './tools/AccountHistoryTool';
 import { SetOptionsTool } from './tools/SetOptionsTool';
+import { SorobanEventIndexerTool } from './tools/SorobanEventIndexerTool';
 import { listen as listenContractEvents } from './tools/ContractEventListener';
 
 import { horizonServer } from './rpc_client';
@@ -108,7 +109,8 @@ export type TaskType =
   | 'soroban_deploy'
   | 'swap'
   | 'account_history'
-  | 'set_options';
+  | 'set_options'
+  | 'soroban_event_query';
 
 export interface AgentTask {
   type: TaskType;
@@ -258,6 +260,7 @@ export class PayFiAgent extends EventEmitter {
   private swapTool: SwapTool;
   private accountHistoryTool: AccountHistoryTool;
   private setOptionsTool: SetOptionsTool;
+  private sorobanEventIndexerTool: SorobanEventIndexerTool;
 
   private activeTasks = 0;
   private isDraining = false;
@@ -305,6 +308,7 @@ export class PayFiAgent extends EventEmitter {
     this.swapTool = new SwapTool(config.agentKeypair().secret());
     this.accountHistoryTool = new AccountHistoryTool();
     this.setOptionsTool = new SetOptionsTool(config.agentKeypair().secret());
+    this.sorobanEventIndexerTool = new SorobanEventIndexerTool();
 
     // ── Register event listeners — every registration is mirrored in destroy() ──
     const onError = (err: Error) => {
@@ -701,6 +705,10 @@ export class PayFiAgent extends EventEmitter {
 
           case 'set_options':
             data = await this.setOptionsTool.execute(task.payload);
+            break;
+
+          case 'soroban_event_query':
+            data = await this.sorobanEventIndexerTool.query(task.payload);
             break;
 
           default:
