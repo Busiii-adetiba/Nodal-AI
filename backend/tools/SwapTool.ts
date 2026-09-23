@@ -5,8 +5,10 @@
 
 import { Asset } from '@stellar/stellar-sdk';
 import { z } from 'zod';
+import { config } from '../config';
 import { ValidationError } from '../errors';
-import { horizonServer } from '../rpc_client';
+import { horizonServer, withRetry } from '../rpc_client';
+import { withBackoffGuard } from '../network';
 import { PathPaymentTool } from './PathPaymentTool';
 
 const AssetSchema = z.object({
@@ -69,9 +71,13 @@ export class SwapTool {
     const sellAsset = toAsset(input.sellAsset);
     const buyAsset = toAsset(input.buyAsset);
 
-    const response = await horizonServer
-      .strictSendPaths(sellAsset, input.sellAmount, [buyAsset])
-      .call();
+    const response = await withBackoffGuard(() =>
+      withRetry(
+        () => horizonServer.strictSendPaths(sellAsset, input.sellAmount, [buyAsset]).call(),
+        config.MAX_RETRIES,
+        config.RETRY_DELAY_MS
+      )
+    );
 
     if (response.records.length === 0) {
       throw new ValidationError('No swap path found for the requested assets');

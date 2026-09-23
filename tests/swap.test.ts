@@ -24,6 +24,7 @@ vi.mock('../backend/rpc_client', () => ({
   sorobanServer: {},
   simulateSorobanTx: vi.fn(),
   prepareSorobanTx: vi.fn(),
+  withRetry: (fn: () => unknown) => fn(),
   resolveNetworkPassphrase: vi.fn(() => 'Test SDF Network ; September 2015'),
 }));
 
