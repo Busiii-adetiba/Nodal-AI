@@ -6,6 +6,8 @@
 import { Keypair, Transaction, StrKey } from '@stellar/stellar-sdk';
 import { z } from 'zod';
 import { config } from '../config';
+import { withRetry } from '../rpc_client';
+import { withBackoffGuard } from '../network';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('stellar-identity');
@@ -47,7 +49,9 @@ export class StellarIdentityTool {
   ): Promise<{ transaction: string; networkPassphrase: string }> {
     const baseUrl = anchorUrl.replace(/\/$/, '');
     const url = `${baseUrl}/auth?account=${encodeURIComponent(publicKey)}`;
-    const response = await fetch(url);
+    const response = await withBackoffGuard(() =>
+      withRetry(() => fetch(url), config.MAX_RETRIES, config.RETRY_DELAY_MS)
+    );
 
     if (!response.ok) {
       throw new Error(`SEP-0010 challenge request failed: HTTP ${response.status}`);
@@ -72,11 +76,18 @@ export class StellarIdentityTool {
     tx.sign(this.keypair);
     const signedXdr = tx.toXDR();
 
-    const response = await fetch(`${baseUrl}/auth`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transaction: signedXdr }),
-    });
+    const response = await withBackoffGuard(() =>
+      withRetry(
+        () =>
+          fetch(`${baseUrl}/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transaction: signedXdr }),
+          }),
+        config.MAX_RETRIES,
+        config.RETRY_DELAY_MS
+      )
+    );
 
     if (!response.ok) {
       throw new Error(`SEP-0010 auth submission failed: HTTP ${response.status}`);
