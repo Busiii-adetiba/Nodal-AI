@@ -18,6 +18,9 @@ import { horizonServer } from '../backend/rpc_client';
 // ─── Mock rpc_client so horizonServer.ledgers() is interceptable ──────────────
 
 vi.mock('../backend/rpc_client', () => ({
+  // Pass-through so verification lookups exercise the mocked Horizon calls
+  // directly, matching the shared withRetry wiring in X402PaymentTool.
+  withRetry: (fn: () => Promise<unknown>) => fn(),
   horizonServer: {
     ledgers: vi.fn().mockReturnValue({
       ledger: vi.fn().mockReturnValue({
