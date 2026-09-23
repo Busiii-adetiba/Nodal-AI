@@ -40,6 +40,7 @@ import { SorobanDeployTool } from './tools/SorobanDeployTool';
 import { SwapTool } from './tools/SwapTool';
 import { AccountHistoryTool } from './tools/AccountHistoryTool';
 import { LedgerInfoTool } from './tools/LedgerInfoTool';
+import { SorobanStorageTool } from './tools/SorobanStorageTool';
 import { listen as listenContractEvents } from './tools/ContractEventListener';
 
 import { horizonServer } from './rpc_client';
@@ -108,7 +109,8 @@ export type TaskType =
   | 'soroban_deploy'
   | 'swap'
   | 'account_history'
-  | 'ledger_info';
+  | 'ledger_info'
+  | 'soroban_storage';
 
 export interface AgentTask {
   type: TaskType;
@@ -258,6 +260,7 @@ export class PayFiAgent extends EventEmitter {
   private swapTool: SwapTool;
   private accountHistoryTool: AccountHistoryTool;
   private ledgerInfoTool: LedgerInfoTool;
+  private sorobanStorageTool: SorobanStorageTool;
 
   private activeTasks = 0;
   private isDraining = false;
@@ -305,6 +308,7 @@ export class PayFiAgent extends EventEmitter {
     this.swapTool = new SwapTool(config.agentKeypair().secret());
     this.accountHistoryTool = new AccountHistoryTool();
     this.ledgerInfoTool = new LedgerInfoTool();
+    this.sorobanStorageTool = new SorobanStorageTool();
 
     // ── Register event listeners — every registration is mirrored in destroy() ──
     const onError = (err: Error) => {
@@ -701,6 +705,10 @@ export class PayFiAgent extends EventEmitter {
 
           case 'ledger_info':
             data = await this.ledgerInfoTool.execute(task.payload);
+            break;
+
+          case 'soroban_storage':
+            data = await this.sorobanStorageTool.execute(task.payload);
             break;
 
           default:
