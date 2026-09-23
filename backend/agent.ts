@@ -42,6 +42,7 @@ import { AccountHistoryTool } from './tools/AccountHistoryTool';
 import { SetOptionsTool } from './tools/SetOptionsTool';
 import { SorobanEventIndexerTool } from './tools/SorobanEventIndexerTool';
 import { StellarIdentityTool } from './tools/StellarIdentityTool';
+import { FriendBotTool } from './tools/FriendBotTool';
 import { listen as listenContractEvents } from './tools/ContractEventListener';
 
 import { horizonServer } from './rpc_client';
@@ -112,7 +113,8 @@ export type TaskType =
   | 'account_history'
   | 'set_options'
   | 'soroban_event_query'
-  | 'stellar_identity_auth';
+  | 'stellar_identity_auth'
+  | 'friendbot';
 
 export interface AgentTask {
   type: TaskType;
@@ -264,6 +266,7 @@ export class PayFiAgent extends EventEmitter {
   private setOptionsTool: SetOptionsTool;
   private sorobanEventIndexerTool: SorobanEventIndexerTool;
   private stellarIdentityTool: StellarIdentityTool;
+  private friendBotTool: FriendBotTool;
 
   private activeTasks = 0;
   private isDraining = false;
@@ -313,6 +316,7 @@ export class PayFiAgent extends EventEmitter {
     this.setOptionsTool = new SetOptionsTool(config.agentKeypair().secret());
     this.sorobanEventIndexerTool = new SorobanEventIndexerTool();
     this.stellarIdentityTool = new StellarIdentityTool(config.agentKeypair().secret());
+    this.friendBotTool = new FriendBotTool();
 
     // ── Register event listeners — every registration is mirrored in destroy() ──
     const onError = (err: Error) => {
@@ -717,6 +721,10 @@ export class PayFiAgent extends EventEmitter {
 
           case 'stellar_identity_auth':
             data = await this.stellarIdentityTool.execute(task.payload);
+            break;
+
+          case 'friendbot':
+            data = await this.friendBotTool.execute(task.payload);
             break;
 
           default:
