@@ -201,6 +201,7 @@ Every `TaskType` value accepted by `PayFiAgent.run()` is listed below, together 
 | `inflation` | `InflationTool` | Set or query the account's inflation destination. |
 | `set_options` | `SetOptionsTool` | Manage account flags, thresholds, signers, and home domain via Stellar `setOptions` operation. |
 | `soroban_event_query` | `SorobanEventIndexerTool` | Query historical Soroban contract events by ledger range and topic filters. Read-only. |
+| `stellar_identity_auth` | `StellarIdentityTool` | Perform SEP-0010 Web Auth challenge-response authentication with an anchor and obtain a JWT. |
 
 ### Lifecycle Hooks
 
