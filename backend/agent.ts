@@ -42,6 +42,7 @@ import { AccountHistoryTool } from './tools/AccountHistoryTool';
 import { LedgerInfoTool } from './tools/LedgerInfoTool';
 import { SorobanStorageTool } from './tools/SorobanStorageTool';
 import { OfferBookTool } from './tools/OfferBookTool';
+import { NetworkStatusTool } from './tools/NetworkStatusTool';
 import { listen as listenContractEvents } from './tools/ContractEventListener';
 
 import { horizonServer } from './rpc_client';
@@ -112,7 +113,8 @@ export type TaskType =
   | 'account_history'
   | 'ledger_info'
   | 'soroban_storage'
-  | 'offer_book';
+  | 'offer_book'
+  | 'network_status';
 
 export interface AgentTask {
   type: TaskType;
@@ -264,6 +266,7 @@ export class PayFiAgent extends EventEmitter {
   private ledgerInfoTool: LedgerInfoTool;
   private sorobanStorageTool: SorobanStorageTool;
   private offerBookTool: OfferBookTool;
+  private networkStatusTool: NetworkStatusTool;
 
   private activeTasks = 0;
   private isDraining = false;
@@ -313,6 +316,7 @@ export class PayFiAgent extends EventEmitter {
     this.ledgerInfoTool = new LedgerInfoTool();
     this.sorobanStorageTool = new SorobanStorageTool();
     this.offerBookTool = new OfferBookTool();
+    this.networkStatusTool = new NetworkStatusTool();
 
     // ── Register event listeners — every registration is mirrored in destroy() ──
     const onError = (err: Error) => {
@@ -717,6 +721,10 @@ export class PayFiAgent extends EventEmitter {
 
           case 'offer_book':
             data = await this.offerBookTool.execute(task.payload);
+            break;
+
+          case 'network_status':
+            data = await this.networkStatusTool.execute();
             break;
 
           default:
