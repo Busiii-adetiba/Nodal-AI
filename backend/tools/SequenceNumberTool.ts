@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { config } from '../config';
 import { loadAccount, submitTransaction, resolveNetworkPassphrase } from '../rpc_client';
 import { SubmitResultSchema } from './StellarPaymentTool';
+import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
 
 export const SequenceNumberInputSchema = z.discriminatedUnion('action', [
   z.object({
@@ -72,7 +73,7 @@ export class SequenceNumberTool {
           bumpTo: String(bumpTo),
         })
       )
-      .setTimeout(30)
+      .setTimeout(SOROBAN_TX_TIMEOUT)
       .build();
 
     tx.sign(this.keypair);

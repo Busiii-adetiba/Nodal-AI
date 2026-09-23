@@ -21,6 +21,7 @@ import {
   resolveNetworkPassphrase,
 } from '../rpc_client';
 import { SubmitResultSchema } from './StellarPaymentTool';
+import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
 
 const ClaimPredicateSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('unconditional') }),
@@ -114,7 +115,7 @@ export class ClaimableBalanceTool {
             claimants,
           })
         )
-        .setTimeout(30)
+        .setTimeout(SOROBAN_TX_TIMEOUT)
         .build();
 
       tx.sign(this.keypair);
@@ -133,7 +134,7 @@ export class ClaimableBalanceTool {
           balanceId: input.balanceId,
         })
       )
-      .setTimeout(30)
+      .setTimeout(SOROBAN_TX_TIMEOUT)
       .build();
 
     tx.sign(this.keypair);

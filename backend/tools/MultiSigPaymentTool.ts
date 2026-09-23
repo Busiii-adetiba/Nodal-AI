@@ -18,6 +18,7 @@ import { config } from '../config';
 import { loadAccount, submitTransaction, resolveNetworkPassphrase } from '../rpc_client';
 import { ValidationError } from '../errors';
 import { SubmitResultSchema } from './StellarPaymentTool';
+import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
 
 export const MultiSigInputSchema = z
   .object({
@@ -99,7 +100,7 @@ export class MultiSigPaymentTool {
       builder.addMemo(Memo.text(input.memo));
     }
 
-    const tx = builder.setTimeout(30).build();
+    const tx = builder.setTimeout(SOROBAN_TX_TIMEOUT).build();
 
     // If pre-collected signatures are provided and meet threshold, sign and submit
     if (input.signatures && input.signatures.length >= input.minSignatures) {
