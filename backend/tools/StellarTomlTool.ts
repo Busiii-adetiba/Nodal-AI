@@ -7,6 +7,8 @@ import axios from 'axios';
 import toml from 'toml';
 import { z } from 'zod';
 import { config } from '../config';
+import { withRetry } from '../rpc_client';
+import { withBackoffGuard } from '../network';
 
 export const StellarTomlInputSchema = z.object({
   domain: z.string().min(1, 'Domain is required'),
@@ -46,7 +48,13 @@ export class StellarTomlTool {
     }
 
     const url = `https://${domain}/.well-known/stellar.toml`;
-    const response = await axios.get(url, { responseType: 'text', timeout: 10_000 });
+    const response = await withBackoffGuard(() =>
+      withRetry(
+        () => axios.get(url, { responseType: 'text', timeout: 10_000 }),
+        config.MAX_RETRIES,
+        config.RETRY_DELAY_MS
+      )
+    );
     const parsed = toml.parse(response.data);
 
     const result: StellarTomlFields = {
