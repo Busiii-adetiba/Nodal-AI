@@ -9,11 +9,14 @@ import { NotFoundError } from '@stellar/stellar-sdk';
 import { config } from '../config';
 import { ValidationError } from '../errors';
 import {
+  DEFAULT_IS_RETRYABLE,
   horizonServer,
   loadAccount,
   resolveNetworkPassphrase,
   submitTransaction,
+  withRetry,
 } from '../rpc_client';
+import { withBackoffGuard } from '../network';
 import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
 import { SubmitResultSchema } from './StellarPaymentTool';
 
@@ -102,7 +105,14 @@ function resolveAsset(a: { code: string; issuer?: string | undefined }): Asset {
 
 async function verifyOfferExists(offerId: string): Promise<void> {
   try {
-    await horizonServer.offers().offer(offerId).call();
+    await withBackoffGuard(() =>
+      withRetry(
+        () => horizonServer.offers().offer(offerId).call(),
+        config.MAX_RETRIES,
+        config.RETRY_DELAY_MS,
+        (err) => !(err instanceof NotFoundError) && DEFAULT_IS_RETRYABLE(err)
+      )
+    );
   } catch (err) {
     if (err instanceof NotFoundError) {
       throw new ValidationError(`Offer ${offerId} not found on Stellar network`);
