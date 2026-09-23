@@ -199,6 +199,7 @@ Every `TaskType` value accepted by `PayFiAgent.run()` is listed below, together 
 | `sponsored_account` | `SponsoredAccountTool` | Create a new Stellar account with sponsored reserves. |
 | `anchor_quote` | `AnchorQuoteTool` | Fetch an SEP-38 quote from an anchor for asset conversion. |
 | `inflation` | `InflationTool` | Set or query the account's inflation destination. |
+| `claimable_balance` | `ClaimableBalanceTool` | Create or claim Stellar claimable balances with conditional or unconditional predicates. |
 
 ### Lifecycle Hooks
 
