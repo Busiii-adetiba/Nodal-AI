@@ -152,7 +152,7 @@ jobs:
           fetch-depth: 0
 
       - name: Secret scanning with trufflehog
-        uses: trufflesecurity/trufflehog@v3.97.1
+        uses: trufflesecurity/trufflehog@v3.97.5
         with:
           extra_args: >-
             --config .trufflehog.yml
