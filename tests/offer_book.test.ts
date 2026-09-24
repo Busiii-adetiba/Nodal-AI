@@ -5,11 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Asset } from '@stellar/stellar-sdk';
-import {
-  OfferBookTool,
-  OfferBookInputSchema,
-  resolveAsset,
-} from '../backend/tools/OfferBookTool';
+import { OfferBookTool, OfferBookInputSchema, resolveAsset } from '../backend/tools/OfferBookTool';
 import * as rpcClient from '../backend/rpc_client';
 
 const mockOrderbookCall = vi.fn();
@@ -65,6 +61,14 @@ describe('resolveAsset helper', () => {
     const custom = resolveAsset({ code: 'BTC', issuer: ISSUER });
     expect(custom.getCode()).toBe('BTC');
     expect(custom.getIssuer()).toBe(ISSUER);
+  });
+
+  it('returns custom credit asset for Asset instance', () => {
+    const custom = new Asset('USDC', ISSUER);
+    const resolved = resolveAsset(custom);
+    expect(resolved.getCode()).toBe('USDC');
+    expect(resolved.getIssuer()).toBe(ISSUER);
+    expect(resolved.isNative()).toBe(false);
   });
 });
 
@@ -139,6 +143,34 @@ describe('OfferBookTool', () => {
     mockOrderbookCall.mockResolvedValue({
       bids: [],
       asks: [{ price: '0.1250000', price_r: { n: 125, d: 1000 }, amount: '500' }],
+    });
+
+    const result = await tool.execute({
+      sellingAsset: 'XLM',
+      buyingAsset: `USDC:${ISSUER}`,
+    });
+
+    expect(result.spread).toBe('0');
+  });
+
+  it('sets spread to "0" when asks are empty but bids are present', async () => {
+    mockOrderbookCall.mockResolvedValue({
+      bids: [{ price: '0.1200000', price_r: { n: 12, d: 100 }, amount: '1000' }],
+      asks: [],
+    });
+
+    const result = await tool.execute({
+      sellingAsset: 'XLM',
+      buyingAsset: `USDC:${ISSUER}`,
+    });
+
+    expect(result.spread).toBe('0');
+  });
+
+  it('sets spread to "0" when both bids and asks are empty', async () => {
+    mockOrderbookCall.mockResolvedValue({
+      bids: [],
+      asks: [],
     });
 
     const result = await tool.execute({
