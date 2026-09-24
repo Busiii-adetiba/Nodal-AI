@@ -19,7 +19,9 @@ import {
   loadAccount,
   resolveNetworkPassphrase,
   submitTransaction,
+  withRetry,
 } from '../rpc_client';
+import { withBackoffGuard } from '../network';
 import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
 
 const AssetSchema = z.object({
@@ -91,10 +93,13 @@ export class LiquidityPoolTool {
     const input = LiquidityPoolInputSchema.parse(rawInput);
 
     if (input.action === 'info') {
-      const res: any = await horizonServer
-        .liquidityPools()
-        .liquidityPoolId(input.liquidityPoolId)
-        .call();
+      const res: any = await withBackoffGuard(() =>
+        withRetry(
+          () => horizonServer.liquidityPools().liquidityPoolId(input.liquidityPoolId).call(),
+          config.MAX_RETRIES,
+          config.RETRY_DELAY_MS
+        )
+      );
 
       const poolInfo: LiquidityPoolInfoResult = {
         id: res.id,
