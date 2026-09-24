@@ -199,6 +199,9 @@ Every `TaskType` value accepted by `PayFiAgent.run()` is listed below, together 
 | `sponsored_account` | `SponsoredAccountTool` | Create a new Stellar account with sponsored reserves. |
 | `anchor_quote` | `AnchorQuoteTool` | Fetch an SEP-38 quote from an anchor for asset conversion. |
 | `inflation` | `InflationTool` | Set or query the account's inflation destination. |
+| `soroban_deploy` | `SorobanDeployTool` | Upload WASM bytecode and instantiate Soroban smart contracts. |
+| `swap` | `SwapTool` | Perform atomic DEX asset swaps via strict-send path payments. |
+| `account_history` | `AccountHistoryTool` | Fetch paginated payment transaction history for a Stellar account. |
 | `set_options` | `SetOptionsTool` | Manage account flags, thresholds, signers, and home domain via Stellar `setOptions` operation. |
 | `soroban_event_query` | `SorobanEventIndexerTool` | Query historical Soroban contract events by ledger range and topic filters. Read-only. |
 | `stellar_identity_auth` | `StellarIdentityTool` | Perform SEP-0010 Web Auth challenge-response authentication with an anchor and obtain a JWT. |
@@ -455,12 +458,13 @@ Key design decisions:
 #### `BalanceCheckTool`
 
 **File:** `backend/tools/BalanceCheckTool.ts`  
+**Task type:** `balance_check`  
 **Purpose:** Query asset balances for any Stellar account (not just the agent's own).
 
 Key design decisions:
 - Accepts a `publicKey` parameter, making it useful for inspecting counterparty accounts before executing a payment.
 - Optional `assetCode` / `assetIssuer` filters narrow the response to a specific asset. Without filters, all balances are returned.
-- Read-only. No transaction is built or submitted. Not currently wired into the `run()` dispatch switch; intended for direct instantiation in utility scripts.
+- Read-only. No transaction is built or submitted. Fully wired into `PayFiAgent.run()` under the `balance_check` task type like other tools.
 
 ---
 
@@ -508,7 +512,7 @@ The mandatory simulation gate applies to **all Soroban (smart contract) tools**:
 | `MultiSigPaymentTool` | **Exempt** | Horizon Classic payment operation. |
 | `TrustlineTool` | **Exempt** | Horizon Classic `changeTrust` operation. |
 | `AccountInfoTool` | N/A | Read-only Horizon query, no transaction built. |
-| `BalanceCheckTool` | N/A | Read-only Horizon query, no transaction built. |
+| `BalanceCheckTool` | N/A | Read-only Horizon query, no transaction built. Dispatched via `run()`. |
 | `X402PaymentTool` | **Exempt** (delegates to `StellarPaymentTool`) | The underlying payment is a Horizon Classic operation. |
 
 **Why this matters for security:** The simulation gate is the primary mechanism preventing wasted fees and failed broadcasts for Soroban calls. A simulation failure surfaces contract-level errors (wrong argument types, insufficient authorization, state violations) in the agent before the transaction is signed or broadcast. Horizon tools do not have an equivalent endpoint — their pre-flight is limited to local envelope validation.

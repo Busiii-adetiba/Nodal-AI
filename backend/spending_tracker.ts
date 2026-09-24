@@ -86,7 +86,7 @@ export class SpendingTracker {
   total(): number {
     const now = Date.now();
     this.pruneOld(now);
-    return this.records.reduce((sum, r) => sum + r.amount, 0);
+    return this.calculateTotal();
   }
 
   /**
@@ -107,11 +107,30 @@ export class SpendingTracker {
     const now = Date.now();
     this.pruneOld(now);
     return {
-      total: this.records.reduce((sum, r) => sum + r.amount, 0),
+      total: this.calculateTotal(),
       recordCount: this.records.length,
       windowMs: this.windowMs,
       oldestTimestamp: this.records.length > 0 ? this.records[0]!.timestamp : null,
     };
+  }
+
+  /**
+   * Calculate cumulative spending sum using BigInt stroop scaling (10_000_000n)
+   * to avoid floating-point addition rounding error accumulation across records.
+   */
+  private calculateTotal(): number {
+    const STROOP_SCALE = 10_000_000n;
+    const totalStroops = this.records.reduce((sum, r) => {
+      const str = r.amount.toFixed(7);
+      const [whole = '0', fraction = ''] = str.split('.');
+      const wholeBig = BigInt(whole);
+      const fracBig = BigInt(fraction.padEnd(7, '0').slice(0, 7));
+      const stroops = wholeBig < 0n || str.startsWith('-')
+        ? wholeBig * STROOP_SCALE - fracBig
+        : wholeBig * STROOP_SCALE + fracBig;
+      return sum + stroops;
+    }, 0n);
+    return Number(totalStroops) / Number(STROOP_SCALE);
   }
 
   private persist(record: { amount: number; timestamp: number }): void {
