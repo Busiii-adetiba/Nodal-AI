@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { config } from '../config';
 import { loadAccount, submitTransaction, resolveNetworkPassphrase } from '../rpc_client';
 import { SubmitResultSchema } from './StellarPaymentTool';
+import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
 
 export const SetOptionsInputSchema = z.object({
   homeDomain: z.string().max(32).optional(),
@@ -52,7 +53,7 @@ export class SetOptionsTool {
           ...(input.clearFlags !== undefined ? { clearFlags: input.clearFlags as AuthFlag } : {}),
         })
       )
-      .setTimeout(30)
+      .setTimeout(SOROBAN_TX_TIMEOUT)
       .build();
 
     tx.sign(this.keypair);

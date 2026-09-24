@@ -25,6 +25,7 @@ import {
 import { ValidationError } from '../errors';
 import { createLogger } from '../utils/logger';
 import { SubmitResultSchema } from './StellarPaymentTool';
+import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
 
 const log = createLogger('path-payment');
 
@@ -195,7 +196,7 @@ export class PathPaymentTool {
         }
       }
 
-      return builder.setTimeout(30).build();
+      return builder.setTimeout(SOROBAN_TX_TIMEOUT).build();
     };
 
     logger.info('Executing path payment', {

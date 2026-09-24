@@ -22,6 +22,7 @@ import {
 import { SubmitResultSchema } from './StellarPaymentTool';
 import { ValidationError } from '../errors';
 import { BalanceCheckTool } from './BalanceCheckTool';
+import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
 
 export const TrustlineInputSchema = z.object({
   assetCode: z.string().min(1).max(12),
@@ -89,7 +90,7 @@ export class TrustlineTool {
               : {}),
         })
       )
-      .setTimeout(30)
+      .setTimeout(SOROBAN_TX_TIMEOUT)
       .build();
 
     tx.sign(this.keypair);

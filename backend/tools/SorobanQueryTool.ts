@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { config } from '../config';
 import { loadAccount, prepareSorobanTx, resolveNetworkPassphrase } from '../rpc_client';
 import { createLogger } from '../utils/logger';
-import { SorobanInvokeInputSchema } from './SorobanInvokeTool';
+import { SorobanInvokeInputSchema, SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
 
 const log = createLogger('soroban-query');
 
@@ -71,7 +71,7 @@ export class SorobanQueryTool {
       networkPassphrase: this.networkPassphrase,
     })
       .addOperation(contract.call(input.method, ...input.args))
-      .setTimeout(30)
+      .setTimeout(SOROBAN_TX_TIMEOUT)
       .build();
 
     const simulationResult = await prepareSorobanTx(tx);

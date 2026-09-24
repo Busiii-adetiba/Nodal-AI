@@ -20,6 +20,7 @@ import { config } from '../config';
 import { logger } from '../logger';
 import { loadAccount, resolveNetworkPassphrase, submitTransaction } from '../rpc_client';
 import { AgentTask } from '../agent';
+import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
 
 export const TransactionBuilderInputSchema = z.object({
   operations: z.array(z.any()).min(1, 'At least one operation is required'),
@@ -285,7 +286,7 @@ export class TransactionBuilderTool {
     if (typeof input.timeBounds === 'number') {
       builder = builder.setTimeout(input.timeBounds);
     } else if (!builderOpts.timebounds) {
-      builder = builder.setTimeout(30);
+      builder = builder.setTimeout(SOROBAN_TX_TIMEOUT);
     }
 
     for (const op of operations) {
