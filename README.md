@@ -39,7 +39,7 @@ If you are new to the Stellar-specific terms used throughout the repo, see the [
 
    ```bash
    git clone https://github.com/Nodal-stellar/Nodal-AI.git
-   cd nodal-ai
+   cd Nodal-AI
    cp .env.example .env
    ```
 
