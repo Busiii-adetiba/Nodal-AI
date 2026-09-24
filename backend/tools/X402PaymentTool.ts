@@ -8,7 +8,8 @@ import { z } from 'zod';
 import { createHash } from 'crypto';
 import Database from 'better-sqlite3';
 import { config } from '../config';
-import { horizonServer } from '../rpc_client';
+import { horizonServer, withRetry } from '../rpc_client';
+import { withBackoffGuard } from '../network';
 import { StellarPaymentTool } from './StellarPaymentTool';
 import { buildMemo } from './MemoAttachmentTool';
 import { logger } from '../logger';
@@ -187,7 +188,13 @@ export class X402PaymentTool {
 
     let signedAt: string;
     try {
-      const ledgerRecord: any = await this.horizonServer.ledgers().ledger(ledger).call();
+      const ledgerRecord: any = await withBackoffGuard(() =>
+        withRetry(
+          () => this.horizonServer.ledgers().ledger(ledger).call(),
+          config.MAX_RETRIES,
+          config.RETRY_DELAY_MS,
+        ),
+      );
       signedAt = ledgerRecord.closed_at;
     } catch {
       signedAt = new Date().toISOString();
@@ -223,9 +230,21 @@ export class X402PaymentTool {
    *   checks (destination, amount, asset, memo, payer) fail.
    */
   async verify(proof: X402PaymentProof, originalChallenge: X402Challenge): Promise<void> {
-    const tx = await this.horizonServer.transactions().transaction(proof.txHash).call();
+    const tx = await withBackoffGuard(() =>
+      withRetry(
+        () => this.horizonServer.transactions().transaction(proof.txHash).call(),
+        config.MAX_RETRIES,
+        config.RETRY_DELAY_MS,
+      ),
+    );
 
-    const ops = await this.horizonServer.operations().forTransaction(proof.txHash).call();
+    const ops = await withBackoffGuard(() =>
+      withRetry(
+        () => this.horizonServer.operations().forTransaction(proof.txHash).call(),
+        config.MAX_RETRIES,
+        config.RETRY_DELAY_MS,
+      ),
+    );
 
     const op = ops.records?.[0];
 
