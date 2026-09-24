@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Backstop for the `mutation` job's path filter: a weakened test does not
+  # touch the mutated files, so nothing would re-run Stryker until the next
+  # change to them. Monday 03:00 UTC catches that within a week.
+  schedule:
+    - cron: '0 3 * * 1'
 
 jobs:
   build:
@@ -158,6 +163,66 @@ jobs:
             --config .trufflehog.yml
             --results=verified,unknown
             --exclude-paths=.trufflehog-exclude-paths.txt
+
+  # Mutation testing (Issue #574).
+  #
+  # stryker.config.mjs sets `break: 60`, so the run fails when the mutation
+  # score for the two targeted files drops below 60%. Until this job existed
+  # nothing invoked it, and that threshold was never actually enforced.
+  #
+  # Gated on the mutated files rather than run on every push: a Stryker run
+  # re-executes the suite once per mutant, so it is minutes of CI where the
+  # other jobs are seconds. A change that touches neither agent.ts nor
+  # StellarPaymentTool.ts cannot move their mutation score, so paying that cost
+  # on every unrelated PR buys nothing — and a slow job on every PR is the kind
+  # that gets marked non-blocking and then ignored.
+  #
+  # The tests themselves are not in the path filter on purpose: a PR that only
+  # weakens a test would not trigger this, but the next change to the mutated
+  # files will, and the score will have dropped. The weekly schedule below is
+  # the backstop for that gap.
+  mutation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+
+      # Skipped on the scheduled run: there is no base ref to diff against
+      # there, and the schedule is meant to run Stryker unconditionally anyway.
+      - name: Check whether the mutated files changed
+        id: changed
+        if: github.event_name != 'schedule'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            mutated:
+              - 'backend/agent.ts'
+              - 'backend/tools/StellarPaymentTool.ts'
+              - 'stryker.config.mjs'
+
+      - name: Install dependencies
+        if: steps.changed.outputs.mutated == 'true' || github.event_name == 'schedule'
+        run: npm ci
+
+      - name: Run Stryker
+        if: steps.changed.outputs.mutated == 'true' || github.event_name == 'schedule'
+        run: npm run test:mutation
+
+      # Kept even on a failing run — the HTML report names the surviving
+      # mutants, which is the only actionable output when the threshold trips.
+      - name: Upload mutation report
+        if: always() && (steps.changed.outputs.mutated == 'true' || github.event_name == 'schedule')
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: reports/mutation
+          if-no-files-found: ignore
+          retention-days: 14
 
   audit-npm:
     runs-on: ubuntu-latest
