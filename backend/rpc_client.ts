@@ -27,6 +27,7 @@ import { logger } from './logger';
 import { validateXDR } from './types/xdr';
 import { createLogger } from './utils/logger';
 import { isThrottled, handleRateLimitResponse, withBackoffGuard } from './network';
+export { withBackoffGuard } from './network';
 import { withSpan } from './telemetry';
 
 const log = createLogger('rpc-client');

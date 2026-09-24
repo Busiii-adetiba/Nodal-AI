@@ -199,7 +199,10 @@ Every `TaskType` value accepted by `PayFiAgent.run()` is listed below, together 
 | `sponsored_account` | `SponsoredAccountTool` | Create a new Stellar account with sponsored reserves. |
 | `anchor_quote` | `AnchorQuoteTool` | Fetch an SEP-38 quote from an anchor for asset conversion. |
 | `inflation` | `InflationTool` | Set or query the account's inflation destination. |
-| `claimable_balance` | `ClaimableBalanceTool` | Create or claim Stellar claimable balances with conditional or unconditional predicates. |
+| `set_options` | `SetOptionsTool` | Manage account flags, thresholds, signers, and home domain via Stellar `setOptions` operation. |
+| `soroban_event_query` | `SorobanEventIndexerTool` | Query historical Soroban contract events by ledger range and topic filters. Read-only. |
+| `stellar_identity_auth` | `StellarIdentityTool` | Perform SEP-0010 Web Auth challenge-response authentication with an anchor and obtain a JWT. |
+| `friendbot` | `FriendBotTool` | Request test account funding on testnet or futurenet via Friendbot. Not available on mainnet. |
 
 ### Lifecycle Hooks
 
