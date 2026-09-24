@@ -106,9 +106,11 @@ describe('NetworkStatusTool', () => {
 
     expect(result.horizon.healthy).toBe(false);
     expect(result.horizon.status).toBe('Service Unavailable');
+    expect(result.soroban.healthy).toBe(true);
+    expect(result.soroban.status).toBe('healthy');
   });
 
-  it('marks Soroban unhealthy when getHealth rejects', async () => {
+  it('marks Soroban unhealthy when getHealth rejects and Horizon remains healthy', async () => {
     vi.mocked(axios.get).mockResolvedValue({
       status: 200,
       statusText: 'OK',
@@ -118,6 +120,7 @@ describe('NetworkStatusTool', () => {
     const result = await tool.execute();
 
     expect(result.horizon.healthy).toBe(true);
+    expect(result.horizon.status).toBe('OK');
     expect(result.soroban.healthy).toBe(false);
     expect(result.soroban.error).toBe('Soroban RPC down');
   });
@@ -131,8 +134,35 @@ describe('NetworkStatusTool', () => {
 
     const result = await tool.execute();
 
+    expect(result.horizon.healthy).toBe(true);
+    expect(result.horizon.status).toBe('OK');
     expect(result.soroban.healthy).toBe(false);
     expect(result.soroban.status).toBe('degraded');
+  });
+
+  it('handles both Horizon and Soroban failing simultaneously', async () => {
+    vi.mocked(axios.get).mockRejectedValue(new Error('Horizon unreachable'));
+    mockSorobanServer.getHealth.mockRejectedValue(new Error('Soroban down'));
+
+    const result = await tool.execute();
+
+    expect(result.horizon.healthy).toBe(false);
+    expect(result.horizon.error).toBe('Horizon unreachable');
+    expect(result.soroban.healthy).toBe(false);
+    expect(result.soroban.error).toBe('Soroban down');
+  });
+
+  it('defaults Soroban status to healthy when getHealth returns object without status string', async () => {
+    vi.mocked(axios.get).mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+    } as any);
+    mockSorobanServer.getHealth.mockResolvedValue({} as any);
+
+    const result = await tool.execute();
+
+    expect(result.soroban.healthy).toBe(true);
+    expect(result.soroban.status).toBe('healthy');
   });
 
   it('uses default constructor arguments from config and default rpc server', () => {
