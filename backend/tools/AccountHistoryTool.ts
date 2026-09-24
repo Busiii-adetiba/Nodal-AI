@@ -5,7 +5,8 @@
 
 import { z } from 'zod';
 import { config } from '../config';
-import { horizonServer } from '../rpc_client';
+import { horizonServer, withRetry } from '../rpc_client';
+import { withBackoffGuard } from '../network';
 
 export interface PaymentRecord {
   id: string;
@@ -83,7 +84,9 @@ export class AccountHistoryTool {
       query = query.cursor(input.cursor);
     }
 
-    const response = await query.call();
+    const response = await withBackoffGuard(() =>
+      withRetry(() => query.call(), config.MAX_RETRIES, config.RETRY_DELAY_MS)
+    );
 
     let records = response.records
       .map((record) =>

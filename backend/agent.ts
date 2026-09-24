@@ -44,6 +44,11 @@ import { SorobanEventIndexerTool } from './tools/SorobanEventIndexerTool';
 import { StellarIdentityTool } from './tools/StellarIdentityTool';
 import { FriendBotTool } from './tools/FriendBotTool';
 import { listen as listenContractEvents } from './tools/ContractEventListener';
+import {
+  watchContractStorage,
+  ContractStorageWatcherOptions,
+  StorageChangeEvent,
+} from './tools/ContractStorageWatcherTool';
 
 import { horizonServer } from './rpc_client';
 import * as rpcClient from './rpc_client';
@@ -277,6 +282,7 @@ export class PayFiAgent extends EventEmitter {
   }> = [];
   private _streamStop: (() => void) | null = null;
   private _contractListenerStop: (() => void) | null = null;
+  private _storageWatcherStop: (() => void) | null = null;
 
   // Bound handler references kept so destroy() can call .off() with the exact same function
   // reference — EventEmitter requires identity equality for removal.
@@ -431,6 +437,32 @@ export class PayFiAgent extends EventEmitter {
   }
 
   /**
+   * Start polling a Soroban contract's storage keys for changes.
+   * Calls onChange for each detected key addition, update, or deletion.
+   */
+  startStorageWatcher(
+    options: ContractStorageWatcherOptions,
+    onChange: (event: StorageChangeEvent) => void
+  ): void {
+    if (this._storageWatcherStop) {
+      this._storageWatcherStop();
+    }
+    const handle = watchContractStorage(options);
+    handle.on('change', onChange);
+    this._storageWatcherStop = handle.stop;
+    logger.info('Contract storage watcher started', { contractId: options.contractId });
+  }
+
+  /** Stop the active contract storage watcher. */
+  stopStorageWatcher(): void {
+    if (this._storageWatcherStop) {
+      this._storageWatcherStop();
+      this._storageWatcherStop = null;
+      logger.info('Contract storage watcher stopped');
+    }
+  }
+
+  /**
    * Detach all registered event listeners and release internal resources.
    *
    * Must be called by the lifecycle manager when an agent instance is
@@ -446,6 +478,7 @@ export class PayFiAgent extends EventEmitter {
   destroy(): void {
     this.stopListening();
     this.stopContractListener();
+    this.stopStorageWatcher();
     for (const [event, handler] of this._boundHandlers) {
       this.off(event, handler);
     }
@@ -677,6 +710,10 @@ export class PayFiAgent extends EventEmitter {
 
           case 'account_history':
             data = await this.accountHistoryTool.fetch(task.payload);
+            break;
+
+          case 'transaction_build':
+            data = await this.transactionBuilderTool.execute(task.payload);
             break;
 
           case 'soroban_deploy':
