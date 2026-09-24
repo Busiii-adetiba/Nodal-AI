@@ -128,6 +128,15 @@ Before submitting your PR, make sure:
    git push origin feat/<issue-number>-<description>
    ```
 
+### Snapshot Tests
+
+Vitest snapshot tests (e.g., `tests/__snapshots__/agent.test.ts.snap`) lock down the serialization contracts and payload shapes of `AgentResult` across tools to prevent breaking webhook consumers.
+
+When your changes intentionally alter an output shape:
+- Update snapshots intentionally using `npm test -- -u` or `npx vitest run -u <path-to-test>`.
+- Review the diff in `tests/__snapshots__/*.snap` to ensure all modified fields are intentional and backwards-compatible.
+- **Never update snapshots blindly** just to make tests pass; always commit the updated snapshots with your PR.
+
 ---
 
 ## Adding a New Tool

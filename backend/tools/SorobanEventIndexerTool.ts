@@ -5,7 +5,9 @@
 
 import { rpc } from '@stellar/stellar-sdk';
 import { z } from 'zod';
-import { sorobanServer } from '../rpc_client';
+import { config } from '../config';
+import { sorobanServer, withRetry } from '../rpc_client';
+import { withBackoffGuard } from '../network';
 
 export const SorobanEventIndexerInputSchema = z.object({
   contractId: z
@@ -40,11 +42,18 @@ export class SorobanEventIndexerTool {
       },
     ];
 
-    const response = await sorobanServer.getEvents({
-      startLedger: input.fromLedger,
-      endLedger: input.toLedger,
-      filters,
-    } as rpc.Server.GetEventsRequest);
+    const response = await withBackoffGuard(() =>
+      withRetry(
+        () =>
+          sorobanServer.getEvents({
+            startLedger: input.fromLedger,
+            endLedger: input.toLedger,
+            filters,
+          } as rpc.Server.GetEventsRequest),
+        config.MAX_RETRIES,
+        config.RETRY_DELAY_MS
+      )
+    );
 
     return {
       events: response.events,

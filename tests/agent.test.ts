@@ -511,6 +511,25 @@ describe('AgentResult snapshot', () => {
           execute: vi.fn().mockResolvedValue({ txHash: 'success_tx_hash', ledger: 1 }),
         }) as any
     );
+    vi.mocked(SorobanInvokeTool).mockImplementation(
+      () =>
+        ({
+          execute: vi.fn().mockResolvedValue({ txHash: 'soroban_invoke_tx_hash' }),
+        }) as any
+    );
+    vi.mocked(X402PaymentTool).mockImplementation(
+      () =>
+        ({
+          respond: vi.fn().mockResolvedValue({
+            protocol: 'x402',
+            network: 'mainnet',
+            txHash: 'x402_tx_hash',
+            nonce: '550e8400-e29b-41d4-a716-446655440000',
+            payer: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+            signedAt: '2026-01-01T00:00:00.000Z',
+          }),
+        }) as any
+    );
     agent = new PayFiAgent();
   });
 
@@ -529,6 +548,44 @@ describe('AgentResult snapshot', () => {
     expect(result).toMatchSnapshot();
     expect(result).toHaveProperty('success', true);
     expect(result).toHaveProperty('taskType', 'stellar_payment');
+    expect(result).toHaveProperty('data');
+  });
+
+  it('AgentResult has expected shape on soroban_invoke success', async () => {
+    const result = await agent.run({
+      type: 'soroban_invoke',
+      payload: {
+        contractId: 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        method: 'hello',
+        args: [],
+      },
+      correlationId: 'fixed-test-id-soroban-success',
+    });
+
+    expect(result).toMatchSnapshot();
+    expect(result).toHaveProperty('success', true);
+    expect(result).toHaveProperty('taskType', 'soroban_invoke');
+    expect(result).toHaveProperty('data');
+  });
+
+  it('AgentResult has expected shape on x402_respond success', async () => {
+    const result = await agent.run({
+      type: 'x402_respond',
+      payload: {
+        resource: 'https://api.example.com/data',
+        amount: '10',
+        assetCode: 'USDC',
+        assetIssuer: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
+        payTo: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+        nonce: '550e8400-e29b-41d4-a716-446655440000',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      },
+      correlationId: 'fixed-test-id-x402-success',
+    });
+
+    expect(result).toMatchSnapshot();
+    expect(result).toHaveProperty('success', true);
+    expect(result).toHaveProperty('taskType', 'x402_respond');
     expect(result).toHaveProperty('data');
   });
 
