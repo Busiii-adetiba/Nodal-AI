@@ -20,6 +20,7 @@ import { ValidationError } from '../errors';
 import { validateXDR } from '../types/xdr';
 import { createLogger } from '../utils/logger';
 import { SubmitResultSchema } from './StellarPaymentTool';
+import { stellarPublicKeySchema } from '../utils/stellarSchemas';
 
 const log = createLogger('fee-bump');
 
@@ -27,7 +28,7 @@ const log = createLogger('fee-bump');
 
 export const FeeBumpInputSchema = z.object({
   innerTxXdr: z.string().min(1, 'innerTxXdr must be a non-empty base64 XDR string'),
-  feeAccount: z.string().length(56, 'Invalid Stellar public key').optional(),
+  feeAccount: stellarPublicKeySchema('feeAccount').optional(),
   baseFeeMultiplier: z.number().int().min(2).default(2),
 });
 

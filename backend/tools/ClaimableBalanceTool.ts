@@ -10,8 +10,7 @@ import {
   Asset,
   Claimant,
   BASE_FEE,
-  StrKey,
-} from '@stellar/stellar-sdk';
+  } from '@stellar/stellar-sdk';
 import { z } from 'zod';
 import { config } from '../config';
 import {
@@ -22,6 +21,7 @@ import {
 } from '../rpc_client';
 import { SubmitResultSchema } from './StellarPaymentTool';
 import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
+import { stellarPublicKeySchema } from '../utils/stellarSchemas';
 
 const ClaimPredicateSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('unconditional') }),
@@ -29,21 +29,14 @@ const ClaimPredicateSchema = z.discriminatedUnion('type', [
 ]);
 
 const ClaimantSchema = z.object({
-  destination: z
-    .string()
-    .length(56)
-    .refine((val) => StrKey.isValidEd25519PublicKey(val), 'Invalid claimant public key'),
+  destination: stellarPublicKeySchema('Claimant public key'),
   predicate: ClaimPredicateSchema.optional(),
 });
 
 const CreateClaimableBalanceSchema = z.object({
   action: z.literal('create'),
   assetCode: z.string().min(1).max(12),
-  assetIssuer: z
-    .string()
-    .length(56)
-    .refine((val) => StrKey.isValidEd25519PublicKey(val), 'Invalid asset issuer')
-    .optional(),
+  assetIssuer: stellarPublicKeySchema('Asset issuer').optional(),
   amount: z.string().min(1),
   claimants: z.array(ClaimantSchema).min(1),
 });

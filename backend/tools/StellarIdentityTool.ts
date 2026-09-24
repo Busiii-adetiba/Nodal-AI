@@ -3,12 +3,13 @@
  * SEP-0010 Web Auth challenge-response for anchor authentication.
  */
 
-import { Keypair, Transaction, StrKey } from '@stellar/stellar-sdk';
+import { Keypair, Transaction } from '@stellar/stellar-sdk';
 import { z } from 'zod';
 import { config } from '../config';
 import { withRetry } from '../rpc_client';
 import { withBackoffGuard } from '../network';
 import { createLogger } from '../utils/logger';
+import { stellarPublicKeySchema } from '../utils/stellarSchemas';
 
 const log = createLogger('stellar-identity');
 
@@ -23,11 +24,7 @@ const AuthResponseSchema = z.object({
 
 export const WebAuthInputSchema = z.object({
   anchorUrl: z.string().url(),
-  publicKey: z
-    .string()
-    .length(56)
-    .refine((val) => StrKey.isValidEd25519PublicKey(val), 'Invalid Stellar public key')
-    .optional(),
+  publicKey: stellarPublicKeySchema('publicKey').optional(),
 });
 
 export type WebAuthInput = z.infer<typeof WebAuthInputSchema>;

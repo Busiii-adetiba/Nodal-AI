@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { config } from '../config';
 import { horizonServer, withRetry } from '../rpc_client';
 import { withBackoffGuard } from '../network';
+import { stellarPublicKeySchema } from '../utils/stellarSchemas';
 
 export interface PaymentRecord {
   id: string;
@@ -25,7 +26,7 @@ export interface AccountHistoryResult {
 }
 
 export const AccountHistoryInputSchema = z.object({
-  publicKey: z.string().length(56, 'Invalid Stellar public key').optional(),
+  publicKey: stellarPublicKeySchema('publicKey').optional(),
   limit: z.number().int().min(1).max(200).optional().default(10),
   cursor: z.string().optional(),
   assetCode: z.string().optional(),

@@ -21,24 +21,13 @@ import { z } from 'zod';
 import * as dotenv from 'dotenv';
 import { Keypair } from '@stellar/stellar-sdk';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { isValidStellarPublicKey } from './utils/stellarSchemas';
 
 // Load .env file (no-op when running in CI / production with real env vars)
 dotenv.config();
 
 // ─── Custom Zod refinements ───────────────────────────────────────────────────
 
-function isValidStellarPublicKey(value: string): boolean {
-  if (!value.startsWith('G')) {
-    return false;
-  }
-
-  try {
-    Keypair.fromPublicKey(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Validates a Stellar secret key (S…, 56 chars, base32).

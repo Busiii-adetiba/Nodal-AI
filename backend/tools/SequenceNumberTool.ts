@@ -3,21 +3,18 @@
  * Fetch and bump Stellar account sequence numbers via BUMP_SEQUENCE.
  */
 
-import { Keypair, TransactionBuilder, Operation, BASE_FEE, StrKey } from '@stellar/stellar-sdk';
+import { Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
 import { z } from 'zod';
 import { config } from '../config';
 import { loadAccount, submitTransaction, resolveNetworkPassphrase } from '../rpc_client';
 import { SubmitResultSchema } from './StellarPaymentTool';
 import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
+import { stellarPublicKeySchema } from '../utils/stellarSchemas';
 
 export const SequenceNumberInputSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('get'),
-    accountId: z
-      .string()
-      .length(56, 'Invalid Stellar public key')
-      .refine((val) => StrKey.isValidEd25519PublicKey(val), 'Invalid Stellar public key')
-      .optional(),
+    accountId: stellarPublicKeySchema('accountId').optional(),
   }),
   z.object({
     action: z.literal('bump'),

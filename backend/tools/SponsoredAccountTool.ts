@@ -9,7 +9,6 @@ import {
   TransactionBuilder,
   Operation,
   BASE_FEE,
-  StrKey,
   xdr,
 } from '@stellar/stellar-sdk';
 import { z } from 'zod';
@@ -17,12 +16,10 @@ import { config } from '../config';
 import { loadAccount, submitTransaction, resolveNetworkPassphrase } from '../rpc_client';
 import { SubmitResultSchema } from './StellarPaymentTool';
 import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
+import { stellarPublicKeySchema } from '../utils/stellarSchemas';
 
 export const SponsoredAccountInputSchema = z.object({
-  newAccountPublicKey: z
-    .string()
-    .length(56, 'Invalid Stellar public key')
-    .refine((val) => StrKey.isValidEd25519PublicKey(val), 'Invalid Stellar public key'),
+  newAccountPublicKey: stellarPublicKeySchema('newAccountPublicKey'),
   startingBalance: z.string().default('0'),
   newAccountSignature: z.string().optional(),
   newAccountSecret: z.string().optional(),

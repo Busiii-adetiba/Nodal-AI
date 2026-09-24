@@ -26,6 +26,7 @@ import { ValidationError } from '../errors';
 import { createLogger } from '../utils/logger';
 import { SubmitResultSchema } from './StellarPaymentTool';
 import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
+import { stellarPublicKeySchema } from '../utils/stellarSchemas';
 
 const log = createLogger('path-payment');
 
@@ -37,7 +38,7 @@ const AssetSchema = z.object({
 });
 
 export const PathPaymentInputSchema = z.object({
-  destination: z.string().length(56, 'Invalid Stellar public key'),
+  destination: stellarPublicKeySchema('destination'),
   sendAsset: AssetSchema,
   sendAmount: z
     .string()
