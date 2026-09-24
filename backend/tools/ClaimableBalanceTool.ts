@@ -10,7 +10,7 @@ import {
   Asset,
   Claimant,
   BASE_FEE,
-  } from '@stellar/stellar-sdk';
+} from '@stellar/stellar-sdk';
 import { z } from 'zod';
 import { config } from '../config';
 import {
@@ -18,6 +18,7 @@ import {
   submitTransaction,
   horizonServer,
   resolveNetworkPassphrase,
+  withRetry,
 } from '../rpc_client';
 import { SubmitResultSchema } from './StellarPaymentTool';
 import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
@@ -72,10 +73,11 @@ export class ClaimableBalanceTool {
   }
 
   private async verifyClaimant(balanceId: string): Promise<void> {
-    const balance = await horizonServer
-      .claimableBalances()
-      .claimant(this.keypair.publicKey())
-      .call();
+    const balance = await withRetry(
+      () => horizonServer.claimableBalances().claimant(this.keypair.publicKey()).call(),
+      config.MAX_RETRIES,
+      config.RETRY_DELAY_MS
+    );
     const records = (balance as { records?: Array<{ id: string }> }).records ?? [];
     const isClaimant = records.some((record) => record.id === balanceId);
     if (!isClaimant) {
