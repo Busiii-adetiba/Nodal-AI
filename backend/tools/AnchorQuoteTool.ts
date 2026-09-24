@@ -5,6 +5,9 @@
 
 import axios from 'axios';
 import { z } from 'zod';
+import { config } from '../config';
+import { withRetry } from '../rpc_client';
+import { withBackoffGuard } from '../network';
 
 export const AnchorQuoteInputSchema = z
   .object({
@@ -78,11 +81,18 @@ export class AnchorQuoteTool {
       headers.Authorization = `Bearer ${input.jwtToken}`;
     }
 
-    const response = await axios.get(url, {
-      params,
-      headers,
-      timeout: 10_000,
-    });
+    const response = await withBackoffGuard(() =>
+      withRetry(
+        () =>
+          axios.get(url, {
+            params,
+            headers,
+            timeout: 10_000,
+          }),
+        config.MAX_RETRIES,
+        config.RETRY_DELAY_MS
+      )
+    );
 
     return AnchorQuoteResponseSchema.parse(response.data);
   }
