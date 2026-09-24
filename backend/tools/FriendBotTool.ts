@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { config } from '../config';
 import { ConfigError } from '../errors';
 import { createLogger } from '../utils/logger';
+import { withRetry, withBackoffGuard } from '../rpc_client';
 
 const log = createLogger('friendbot-tool');
 
@@ -21,6 +22,17 @@ export const FriendBotInputSchema = z.object({
 });
 
 export type FriendBotInput = z.infer<typeof FriendBotInputSchema>;
+
+// ─── Response Schema ────────────────────────────────────────────────────────────
+
+export const FriendBotResponseSchema = z
+  .object({
+    hash: z.string().optional(),
+    txHash: z.string().optional(),
+  })
+  .passthrough();
+
+export type FriendBotResponse = z.infer<typeof FriendBotResponseSchema>;
 
 export interface FriendBotResult {
   funded: boolean;
@@ -53,13 +65,18 @@ export class FriendBotTool {
 
     const url = `${baseUrl}?addr=${encodeURIComponent(input.publicKey)}`;
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      throw new Error(`Friendbot request failed with status ${response.status}: ${errorText}`);
-    }
+    const response = await withBackoffGuard(() =>
+      withRetry(async () => {
+        const res = await fetch(url);
+        if (!res.ok) {
+          const errorText = await res.text().catch(() => '');
+          throw new Error(`Friendbot request failed with status ${res.status}: ${errorText}`);
+        }
+        return res;
+      })
+    );
 
-    const json: any = await response.json();
+    const json = FriendBotResponseSchema.parse(await response.json());
     const txHash: string | undefined = json.hash ?? json.txHash;
 
     log.info({ publicKey: input.publicKey, txHash }, 'Friendbot account funding succeeded');
