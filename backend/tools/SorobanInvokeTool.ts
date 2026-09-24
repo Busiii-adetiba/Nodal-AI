@@ -25,6 +25,7 @@ import {
   sorobanServer,
 } from '../rpc_client';
 import { spendingTracker } from '../spending_tracker';
+import { stellarContractIdSchema } from '../utils/stellarSchemas';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -145,7 +146,7 @@ export function extractSacTransferTotal(
  */
 export const SorobanInvokeInputSchema = z.object({
   /** 56-character Stellar contract address (strkey C… encoding). */
-  contractId: z.string().length(56, 'Invalid Stellar contract ID'),
+  contractId: stellarContractIdSchema('contractId'),
 
   /** Name of the contract function to invoke (e.g. `"transfer"`, `"mint"`). */
   method: z.string().min(1),

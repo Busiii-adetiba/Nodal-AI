@@ -14,6 +14,7 @@ import { buildMemo } from './MemoAttachmentTool';
 import { logger } from '../logger';
 import { INonceStore, SqliteNonceStore, MAX_NONCE_TTL_MS } from '../nonce_store';
 import { TransactionFailureError } from '../errors';
+import { stellarPublicKeySchema } from '../utils/stellarSchemas';
 
 /**
  * Best-effort recovery of a transaction hash from a submission error.
@@ -46,7 +47,7 @@ export const X402ChallengeSchema = z
     amount: z.string(),
     assetCode: z.string().default(config.X402_ASSET_CODE),
     assetIssuer: z.string().default(config.X402_ASSET_ISSUER),
-    payTo: z.string().length(56, 'Invalid payTo Stellar address'),
+    payTo: stellarPublicKeySchema('payTo'),
     nonce: z.string().uuid('Nonce must be a UUID v4'),
     expiresAt: z.string().datetime(),
   })

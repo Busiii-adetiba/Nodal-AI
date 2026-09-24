@@ -3,12 +3,13 @@
  * Read, write, and delete Stellar account data entries via MANAGE_DATA.
  */
 
-import { Keypair, TransactionBuilder, Operation, BASE_FEE, StrKey } from '@stellar/stellar-sdk';
+import { Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
 import { z } from 'zod';
 import { config } from '../config';
 import { loadAccount, submitTransaction, resolveNetworkPassphrase } from '../rpc_client';
 import { SubmitResultSchema } from './StellarPaymentTool';
 import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
+import { stellarPublicKeySchema } from '../utils/stellarSchemas';
 
 export const DataEntryInputSchema = z.discriminatedUnion('action', [
   z.object({
@@ -23,11 +24,7 @@ export const DataEntryInputSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('get'),
     name: z.string().min(1).max(64, 'Data name must be <= 64 bytes'),
-    accountId: z
-      .string()
-      .length(56, 'Invalid Stellar public key')
-      .refine((val) => StrKey.isValidEd25519PublicKey(val), 'Invalid Stellar public key')
-      .optional(),
+    accountId: stellarPublicKeySchema('accountId').optional(),
   }),
 ]);
 

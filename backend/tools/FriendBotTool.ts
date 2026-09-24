@@ -8,6 +8,7 @@ import { config } from '../config';
 import { ConfigError } from '../errors';
 import { createLogger } from '../utils/logger';
 import { withRetry, withBackoffGuard } from '../rpc_client';
+import { stellarPublicKeySchema } from '../utils/stellarSchemas';
 
 const log = createLogger('friendbot-tool');
 
@@ -15,10 +16,7 @@ const log = createLogger('friendbot-tool');
 
 export const FriendBotInputSchema = z.object({
   /** 56-character Stellar public key (G… encoding). */
-  publicKey: z
-    .string()
-    .length(56, 'Must be a 56-character Stellar public key (G…)')
-    .refine((val) => val.startsWith('G'), { message: 'Public key must start with G' }),
+  publicKey: stellarPublicKeySchema('publicKey'),
 });
 
 export type FriendBotInput = z.infer<typeof FriendBotInputSchema>;

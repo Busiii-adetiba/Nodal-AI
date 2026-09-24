@@ -13,6 +13,15 @@ export enum ErrorType {
   RateLimitError = 'RATE_LIMIT_ERROR',
   UnauthorizedError = 'UNAUTHORIZED_ERROR',
   ContractError = 'CONTRACT_ERROR',
+  /**
+   * A simulation exceeded its resource budget (Issue #569).
+   *
+   * Separate from ContractError because the caller's response differs: a
+   * budget overrun is retryable with a larger budget or a smaller call, while
+   * a contract error usually is not. Sharing one type forced callers to
+   * string-match the message, which is exactly what errorType exists to avoid.
+   */
+  SimulationBudgetExceeded = 'SIMULATION_BUDGET_EXCEEDED',
   TransactionFailure = 'TRANSACTION_FAILURE',
   ConfigError = 'CONFIG_ERROR',
   UnknownError = 'UNKNOWN_ERROR',
@@ -107,7 +116,7 @@ export class ConfigError extends StructuredError {
 
 export class SimulationBudgetError extends StructuredError {
   constructor(message: string, cause?: unknown) {
-    super(message, ErrorType.ContractError, cause);
+    super(message, ErrorType.SimulationBudgetExceeded, cause);
     Object.setPrototypeOf(this, SimulationBudgetError.prototype);
   }
 }

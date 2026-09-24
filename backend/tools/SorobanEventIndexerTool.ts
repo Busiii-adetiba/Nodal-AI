@@ -8,12 +8,10 @@ import { z } from 'zod';
 import { config } from '../config';
 import { sorobanServer, withRetry } from '../rpc_client';
 import { withBackoffGuard } from '../network';
+import { stellarContractIdSchema } from '../utils/stellarSchemas';
 
 export const SorobanEventIndexerInputSchema = z.object({
-  contractId: z
-    .string()
-    .length(56)
-    .regex(/^C[A-Z2-7]+$/, 'Invalid Stellar contract ID'),
+  contractId: stellarContractIdSchema('contractId'),
   fromLedger: z.number().int().positive(),
   toLedger: z.number().int().positive(),
   topics: z.array(z.array(z.string())).optional(),

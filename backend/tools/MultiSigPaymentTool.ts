@@ -10,7 +10,6 @@ import {
   Asset,
   BASE_FEE,
   Memo,
-  StrKey,
   xdr,
 } from '@stellar/stellar-sdk';
 import { z } from 'zod';
@@ -19,10 +18,11 @@ import { loadAccount, submitTransaction, resolveNetworkPassphrase } from '../rpc
 import { ValidationError } from '../errors';
 import { SubmitResultSchema } from './StellarPaymentTool';
 import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
+import { stellarPublicKeySchema } from '../utils/stellarSchemas';
 
 export const MultiSigInputSchema = z
   .object({
-    destination: z.string().length(56, 'Invalid Stellar public key'),
+    destination: stellarPublicKeySchema('destination'),
     amount: z
       .string()
       .regex(/^(?!0(\.0+)?$)\d+(\.\d{1,7})?$/, 'Amount must be a valid Stellar decimal')
@@ -33,12 +33,7 @@ export const MultiSigInputSchema = z
       .string()
       .refine((v) => Buffer.byteLength(v, 'utf8') <= 28, 'Memo must be at most 28 bytes')
       .optional(),
-    additionalSigners: z.array(
-      z
-        .string()
-        .length(56, 'Invalid signer public key')
-        .refine((value) => StrKey.isValidEd25519PublicKey(value), 'Invalid signer public key')
-    ),
+    additionalSigners: z.array(stellarPublicKeySchema('Signer public key')),
     minSignatures: z.number().int().min(1),
     signatures: z.array(z.string()).optional(),
   })

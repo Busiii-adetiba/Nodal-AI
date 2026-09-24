@@ -9,6 +9,7 @@ import { config } from '../config';
 import { createLogger } from '../utils/logger';
 import { sorobanServer, withRetry } from '../rpc_client';
 import { withBackoffGuard } from '../network';
+import { stellarContractIdSchema } from '../utils/stellarSchemas';
 
 const log = createLogger('soroban-storage');
 
@@ -52,7 +53,7 @@ export function toJsonSerializable(val: unknown): unknown {
 
 export const SorobanStorageInputSchema = z.object({
   /** 56-character Stellar contract address (strkey C… encoding). */
-  contractId: z.string().length(56, 'Invalid Stellar contract ID'),
+  contractId: stellarContractIdSchema('contractId'),
 
   /**
    * Keys to query in storage. Can be ScVal instances or native values.
