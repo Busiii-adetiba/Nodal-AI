@@ -63,7 +63,11 @@ export function resolveAsset(input: OfferBookInput['sellingAsset']): Asset {
       const [code, issuer] = input.split(':') as [string, string];
       return new Asset(code, issuer);
     }
-    return new Asset(input, config.X402_ASSET_ISSUER);
+    // Bare asset code without issuer - this is ambiguous on Stellar
+    // since multiple issuers can use the same asset code.
+    throw new Error(
+      `Asset code "${input}" requires an issuer. Use "${input}:ISSUER" format or provide an issuer in the object form.`
+    );
   }
   if (input.code.toUpperCase() === 'XLM' || !input.issuer) {
     return Asset.native();
