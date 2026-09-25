@@ -89,7 +89,7 @@ export type PaymentInput = z.infer<typeof PaymentInputSchema>;
  * @param memoValue - Memo value (string for text/return/hash, number for id)
  * @returns Memo instance or null if memoValue is undefined
  */
-function buildMemo(memoType: string, memoValue: string | number | undefined): Memo | null {
+export function buildMemo(memoType: string, memoValue: string | number | undefined): Memo | null {
   if (memoValue === undefined) {
     return null;
   }

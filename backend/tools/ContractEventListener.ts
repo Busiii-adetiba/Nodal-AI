@@ -7,6 +7,21 @@
  * on an interval and invokes a callback for each new matching event.
  *
  * Architecture: poll getEvents() → filter by eventTypes → invoke onEvent → repeat
+ *
+ * IMPORTANT ERROR HANDLING CONTRACT:
+ * ----------------------------------
+ * This listener emits a 'connectionError' event (not Node's built-in 'error' event)
+ * when polling fails after maxReconnectAttempts. This is intentional:
+ *
+ * 1. Node's EventEmitter emits 'error' with no listener will throw and crash the process
+ * 2. We cannot guarantee callers attach an 'error' listener before calling listen()
+ * 3. Therefore we emit 'connectionError' as a safe custom event that won't crash
+ *
+ * Callers SHOULD listen on the returned handle for:
+ *   - 'connectionError': Emitted when all reconnect attempts are exhausted
+ *   - 'error': Standard EventEmitter error (if you register a listener)
+ *
+ * Alternatively, pass an onError callback in options to be notified of failures.
  */
 
 import { EventEmitter } from 'events';
@@ -16,8 +31,15 @@ import { logger } from '../logger';
 import { sorobanServer } from '../rpc_client';
 
 export interface ContractEventListenerOptions {
+  /** Maximum number of consecutive polling failures before giving up. Default: 5 */
   maxReconnectAttempts?: number;
+  /** Polling interval in milliseconds. Default: 2000ms (or config.RETRY_DELAY_MS * 2) */
   pollIntervalMs?: number;
+  /**
+   * Optional callback invoked when polling fails after maxReconnectAttempts.
+   * Preferred over listening for 'connectionError' events.
+   */
+  onError?: (error: Error) => void;
 }
 
 export interface ContractEventListenerHandle extends EventEmitter {
@@ -44,11 +66,14 @@ export function listen(
   let cursor: string | undefined;
   let startLedgerPromise: Promise<number> | undefined;
 
-  const maxReconnectAttempts =
-    typeof options === 'number' ? options : (options?.maxReconnectAttempts ?? 5);
+  const normalizedOptions: ContractEventListenerOptions =
+    typeof options === 'number' ? { maxReconnectAttempts: options } : (options ?? {});
+
+  const maxReconnectAttempts = normalizedOptions.maxReconnectAttempts ?? 5;
+  const onErrorCallback = normalizedOptions.onError;
 
   const pollIntervalMs =
-    (typeof options === 'object' && options?.pollIntervalMs) ||
+    normalizedOptions.pollIntervalMs ||
     config.CONTRACT_EVENT_POLL_MS ||
     config.RETRY_DELAY_MS * 2;
 
@@ -115,7 +140,24 @@ export function listen(
           clearTimeout(timerId);
           timerId = undefined;
         }
-        handle.emit('error', err);
+
+        // Use safe custom event instead of Node's 'error' to prevent process crash
+        // when no listener is attached. Callers can also use the onError callback.
+        const error = err instanceof Error ? err : new Error(String(err));
+        handle.emit('connectionError', error);
+
+        // Also call the optional onError callback if provided (preferred approach)
+        if (onErrorCallback) {
+          try {
+            onErrorCallback(error);
+          } catch (callbackErr) {
+            logger.error('ContractEventListener onError callback threw', {
+              contractId,
+              error: (callbackErr as Error).message,
+            });
+          }
+        }
+
         return;
       }
 
