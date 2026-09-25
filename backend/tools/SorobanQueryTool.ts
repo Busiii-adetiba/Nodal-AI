@@ -49,15 +49,8 @@ export class SorobanQueryTool {
   async query(rawInput: unknown): Promise<SorobanQueryResult> {
     const input = SorobanQueryInputSchema.parse(rawInput);
 
-    let contract: any;
-    try {
-      contract = new Contract(input.contractId);
-    } catch {
-      contract = {
-        call: (method: string, ..._args: any[]) =>
-          Operation.manageData({ name: `query:${method}`, value: 'mock' }),
-      };
-    }
+    // Validate contractId format - reject invalid IDs early with a clear error
+    const contract = new Contract(input.contractId);
 
     const sourceAccount = await loadAccount(this.keypair.publicKey());
 

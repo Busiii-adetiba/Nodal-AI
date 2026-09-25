@@ -84,7 +84,7 @@ export class SponsoredAccountTool {
       } catch {
         try {
           const keypair = Keypair.fromPublicKey(input.newAccountPublicKey);
-          const hint = keypair.rawPublicKey().slice(-4);
+          const hint = keypair.signatureHint();
           const sigBuffer = Buffer.from(input.newAccountSignature, 'base64');
           const decorated = new xdr.DecoratedSignature({
             hint,

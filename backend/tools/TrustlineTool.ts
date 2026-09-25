@@ -52,10 +52,27 @@ export class TrustlineTool {
     );
   }
 
+  /**
+   * Add or remove a trustline for the agent account.
+   *
+   * For 'add' action: checks if the trustline already exists to avoid
+   * submitting a duplicate transaction and wasting fees.
+   * For 'remove' action: verifies the trustline has a zero balance.
+   */
   async execute(rawInput: unknown): Promise<{ txHash: string; ledger: number }> {
     const input = TrustlineInputSchema.parse(rawInput);
     const asset = new Asset(input.assetCode, input.assetIssuer);
     const account = await loadAccount(this.keypair.publicKey());
+
+    if (input.action === 'add') {
+      // Check if trustline already exists to avoid duplicate tx/fees
+      const trustlineExists = await this.checkTrustline(input.assetCode, input.assetIssuer);
+      if (trustlineExists) {
+        throw new ValidationError(
+          `Trustline for ${input.assetCode} already exists — no action needed`
+        );
+      }
+    }
 
     if (input.action === 'remove') {
       const balance = await this.balanceCheckTool.execute({
