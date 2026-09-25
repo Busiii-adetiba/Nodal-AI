@@ -1,6 +1,7 @@
 import { StrKey } from '@stellar/stellar-sdk';
 import { z } from 'zod';
 import { loadAccount } from '../rpc_client';
+import { findBalance } from './balanceHelpers';
 
 const stellarPublicKeySchema = z
   .string()
@@ -43,20 +44,7 @@ export class BalanceCheckTool {
     const account = await loadAccount(input.publicKey);
     const balances = account.balances as any[];
 
-    // Native XLM balance lookup: when assetCode is omitted, undefined, or 'XLM'
-    if (!input.assetCode || input.assetCode === 'XLM') {
-      const nativeBalance = balances.find((entry) => entry.asset_type === 'native');
-      return nativeBalance?.balance ?? '0';
-    }
-
-    // Non-native asset balance lookup
-    const balance = balances.find(
-      (entry) =>
-        entry.asset_type !== 'native' &&
-        entry.asset_code === input.assetCode &&
-        entry.asset_issuer === input.assetIssuer
-    );
-
+    const balance = findBalance(account, input.assetCode, input.assetIssuer);
     return balance?.balance ?? '0';
   }
 }

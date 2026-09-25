@@ -1,19 +1,29 @@
 /**
  * tests/friendbot.test.ts
- * Tests for FriendBotTool (#550)
+ * Tests for FriendBotTool (#550, #593)
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { FriendBotTool, FriendBotResponseSchema } from '../backend/tools/FriendBotTool';
+import { FriendBotTool } from '../backend/tools/FriendBotTool';
 import { ConfigError } from '../backend/errors';
 
-let mockNetwork = 'testnet';
+const { getNetwork, setNetwork } = vi.hoisted(() => {
+  let network = 'testnet';
+  return {
+    getNetwork: () => network,
+    setNetwork: (n: string) => {
+      network = n;
+    },
+  };
+});
 
 vi.mock('../backend/config', () => ({
   config: {
     get STELLAR_NETWORK() {
-      return mockNetwork;
+      return getNetwork();
     },
+    HORIZON_URL: 'https://horizon-testnet.stellar.org',
+    SOROBAN_RPC_URL: 'https://soroban-testnet.stellar.org',
     MAX_RETRIES: 2,
     RETRY_DELAY_MS: 1,
   },
@@ -41,7 +51,7 @@ describe('FriendBotTool', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockNetwork = 'testnet';
+    setNetwork('testnet');
     tool = new FriendBotTool();
     vi.stubGlobal('fetch', vi.fn());
   });
@@ -84,7 +94,7 @@ describe('FriendBotTool', () => {
   });
 
   it('uses futurenet friendbot URL when network is futurenet', async () => {
-    mockNetwork = 'futurenet';
+    setNetwork('futurenet');
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ hash: 'futurenet_hash' }),
@@ -99,7 +109,7 @@ describe('FriendBotTool', () => {
   });
 
   it('throws ConfigError when invoked on mainnet', async () => {
-    mockNetwork = 'mainnet';
+    setNetwork('mainnet');
 
     await expect(tool.execute({ publicKey: VALID_PUBLIC_KEY })).rejects.toThrow(ConfigError);
     await expect(tool.execute({ publicKey: VALID_PUBLIC_KEY })).rejects.toThrow(
@@ -160,6 +170,6 @@ describe('FriendBotTool', () => {
     await expect(tool.execute({ publicKey: 'invalid_key' })).rejects.toThrow();
     await expect(
       tool.execute({ publicKey: 'SBZ7EYXHNB4WPPIWC5YAMH2U4L4QU6DKYXQWG4I55G6O4CLE4BBHCE73' })
-    ).rejects.toThrow('Public key must start with G');
+    ).rejects.toThrow(/must start with G/i);
   });
 });

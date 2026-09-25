@@ -19,6 +19,7 @@ import {
   resolveNetworkPassphrase,
 } from '../rpc_client';
 import { SubmitResultSchema } from './StellarPaymentTool';
+import { getTypedBalances } from './balanceHelpers';
 import { ValidationError } from '../errors';
 import { BalanceCheckTool } from './BalanceCheckTool';
 import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
@@ -46,9 +47,8 @@ export class TrustlineTool {
 
   async checkTrustline(assetCode: string, assetIssuer: string): Promise<boolean> {
     const account = await loadAccount(this.keypair.publicKey());
-    return (account.balances as any[]).some(
-      (b) =>
-        b.asset_type !== 'native' && b.asset_code === assetCode && b.asset_issuer === assetIssuer
+    return getTypedBalances(account).some(
+      (b) => b.assetType !== 'native' && b.assetCode === assetCode && b.assetIssuer === assetIssuer
     );
   }
 

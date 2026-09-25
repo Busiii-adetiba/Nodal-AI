@@ -119,6 +119,37 @@ describe('LedgerInfoTool', () => {
     expect(rpcClient.sorobanServer.getLatestLedger).toHaveBeenCalledTimes(2);
   });
 
+  it('refetches from RPC when cache expires after TTL', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(rpcClient.sorobanServer.getLatestLedger)
+        .mockResolvedValueOnce({ sequence: 300, protocolVersion: 20 } as any)
+        .mockResolvedValueOnce({ sequence: 301, protocolVersion: 20 } as any);
+
+      const first = await tool.execute();
+      expect(first.sequence).toBe(300);
+
+      vi.advanceTimersByTime(6001);
+
+      const second = await tool.execute();
+      expect(second.sequence).toBe(301);
+      expect(rpcClient.sorobanServer.getLatestLedger).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('passes retry configuration to withRetry', async () => {
+    vi.mocked(rpcClient.sorobanServer.getLatestLedger).mockResolvedValue({
+      sequence: 123456,
+      protocolVersion: 20,
+    } as any);
+
+    await tool.execute();
+
+    expect(rpcClient.withRetry).toHaveBeenCalledWith(expect.any(Function), 3, 100);
+  });
+
   it('propagates RPC error when call fails', async () => {
     vi.mocked(rpcClient.sorobanServer.getLatestLedger).mockRejectedValue(
       new Error('Soroban RPC unavailable')
