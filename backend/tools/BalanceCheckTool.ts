@@ -1,6 +1,7 @@
 import { StrKey } from '@stellar/stellar-sdk';
 import { z } from 'zod';
 import { loadAccount } from '../rpc_client';
+import { findBalance } from './balanceHelpers';
 
 const stellarPublicKeySchema = z
   .string()
@@ -28,13 +29,7 @@ export class BalanceCheckTool {
     const account = await loadAccount(input.publicKey);
     if (!input.assetCode) return '0';
 
-    const balance = (account.balances as any[]).find(
-      (entry) =>
-        entry.asset_type !== 'native' &&
-        entry.asset_code === input.assetCode &&
-        entry.asset_issuer === input.assetIssuer
-    );
-
+    const balance = findBalance(account, input.assetCode, input.assetIssuer);
     return balance?.balance ?? '0';
   }
 }
