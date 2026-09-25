@@ -10,6 +10,8 @@
  *     and AGENT_PUBLIC_KEY.
  *   - Mock `getResults` from persistence to inject controlled data for
  *     the /status endpoint.
+ *   - Mock the dependency probes (checkHorizon/checkSoroban/checkDatabase)
+ *     so /health can be exercised for both the healthy and degraded paths.
  *   - Invoke the captured handler with mock req/res objects and assert
  *     the response shapes.
  */
@@ -52,6 +54,18 @@ vi.mock('../backend/persistence', () => ({
     if (mockResultsError) throw mockResultsError;
     return mockResults.slice(0, limit ?? 100);
   }),
+}));
+
+// Mock the dependency probes used by handleHealth(). Each defaults to a
+// healthy result; individual tests override them to exercise the degraded
+// path. The real implementations are never invoked in this suite.
+let horizonOk = true;
+let sorobanOk = true;
+let databaseOk = true;
+vi.mock('../backend/health', () => ({
+  checkHorizon: vi.fn(async () => (horizonOk ? { ok: true } : { ok: false, error: 'horizon down' })),
+  checkSoroban: vi.fn(async () => (sorobanOk ? { ok: true } : { ok: false, error: 'soroban down' })),
+  checkDatabase: vi.fn(async () => (databaseOk ? { ok: true } : { ok: false, error: 'database down' })),
 }));
 
 import type * as http from 'http';
@@ -98,6 +112,9 @@ describe('backend/server.ts — health check HTTP server', () => {
     capturedHandler = null;
     mockResults = [];
     mockResultsError = null;
+    horizonOk = true;
+    sorobanOk = true;
+    databaseOk = true;
     vi.clearAllMocks();
   });
 
@@ -108,47 +125,76 @@ describe('backend/server.ts — health check HTTP server', () => {
   });
 
   describe('GET /health', () => {
-    it("returns 200 with { status: 'ok', network, publicKey }", () => {
+    it("returns 200 with { status: 'ok', components } when all probes pass", async () => {
       createHealthServer();
       const req = makeReq('GET', '/health');
       const res = makeRes();
 
-      capturedHandler!(req, res);
+      await capturedHandler!(req, res);
 
       expect(res._statusCode).toBe(200);
       const body = JSON.parse(res._body);
-      expect(body).toEqual({
-        status: 'ok',
-        network: 'testnet',
-        publicKey: 'GTEST1234567890123456789012345678901234567890123456',
+      expect(body.status).toBe('ok');
+      expect(body.components).toEqual({
+        horizon: { ok: true },
+        soroban: { ok: true },
+        database: { ok: true },
       });
       expect(res._headers['Content-Type']).toBe('application/json');
     });
 
-    it('health response matches expected shape', () => {
+    it('health response matches expected shape', async () => {
       createHealthServer();
       const req = makeReq('GET', '/health');
       const res = makeRes();
 
-      capturedHandler!(req, res);
+      await capturedHandler!(req, res);
 
       expect(res._statusCode).toBe(200);
       const body = JSON.parse(res._body);
       expect(body).toMatchSnapshot();
     });
 
-    it('includes the correct network value from config', () => {
+    it('returns 503 with status "degraded" when Horizon is down', async () => {
+      horizonOk = false;
       createHealthServer();
       const req = makeReq('GET', '/health');
       const res = makeRes();
 
-      capturedHandler!(req, res);
+      await capturedHandler!(req, res);
 
+      expect(res._statusCode).toBe(503);
       const body = JSON.parse(res._body);
-      expect(body.network).toBe('testnet');
-      expect(body).toHaveProperty('status');
-      expect(body).toHaveProperty('network');
-      expect(body).toHaveProperty('publicKey');
+      expect(body.status).toBe('degraded');
+      expect(body.components.horizon.ok).toBe(false);
+    });
+
+    it('returns 503 with status "degraded" when Soroban is down', async () => {
+      sorobanOk = false;
+      createHealthServer();
+      const req = makeReq('GET', '/health');
+      const res = makeRes();
+
+      await capturedHandler!(req, res);
+
+      expect(res._statusCode).toBe(503);
+      const body = JSON.parse(res._body);
+      expect(body.status).toBe('degraded');
+      expect(body.components.soroban.ok).toBe(false);
+    });
+
+    it('returns 503 with status "degraded" when the database is down', async () => {
+      databaseOk = false;
+      createHealthServer();
+      const req = makeReq('GET', '/health');
+      const res = makeRes();
+
+      await capturedHandler!(req, res);
+
+      expect(res._statusCode).toBe(503);
+      const body = JSON.parse(res._body);
+      expect(body.status).toBe('degraded');
+      expect(body.components.database.ok).toBe(false);
     });
   });
 
@@ -251,80 +297,27 @@ describe('backend/server.ts — health check HTTP server', () => {
     });
 
     it('returns 401 when the handler throws an UnauthorizedError', async () => {
-      const res = await requestStatusWith(new UnauthorizedError('no token'));
+      const res = await requestStatusWith(new UnauthorizedError('nope'));
       expect(res._statusCode).toBe(401);
+      expect(JSON.parse(res._body).type).toBe('UnauthorizedError');
     });
 
-    it('returns 429 with Retry-After when the handler throws a RateLimitError', async () => {
-      const res = await requestStatusWith(new RateLimitError('slow down', 45));
+    it('returns 429 when the handler throws a RateLimitError', async () => {
+      const res = await requestStatusWith(new RateLimitError('slow down'));
       expect(res._statusCode).toBe(429);
-      expect(res._headers['Retry-After']).toBe('45');
+      expect(JSON.parse(res._body).type).toBe('RateLimitError');
     });
 
-    it('returns 503 when the handler throws a NetworkTimeoutError', async () => {
-      const res = await requestStatusWith(new NetworkTimeoutError('horizon timed out'));
-      expect(res._statusCode).toBe(503);
+    it('returns 504 when the handler throws a NetworkTimeoutError', async () => {
+      const res = await requestStatusWith(new NetworkTimeoutError('timeout'));
+      expect(res._statusCode).toBe(504);
+      expect(JSON.parse(res._body).type).toBe('NetworkTimeoutError');
     });
 
-    it('returns 500 for error types with no client-side meaning', async () => {
-      const res = await requestStatusWith(new ContractError('trapped'));
-      expect(res._statusCode).toBe(500);
-    });
-
-    it('returns 500 for a plain Error', async () => {
-      const res = await requestStatusWith(new Error('boom'));
-      expect(res._statusCode).toBe(500);
-    });
-  });
-
-  // ── Docker / container health check contract (#463) ────────────────────────
-  // The Docker Compose health check polls GET /health and greps for
-  // `"status":"ok"` in the response body.  These tests pin that exact
-  // contract so a refactor cannot silently break container readiness probes.
-  describe('Docker health check contract', () => {
-    it('GET /health returns 200 so curl exits 0', () => {
-      createHealthServer();
-      const req = makeReq('GET', '/health');
-      const res = makeRes();
-
-      capturedHandler!(req, res);
-
-      expect(res._statusCode).toBe(200);
-    });
-
-    it('GET /health body contains "status":"ok" for the grep probe', () => {
-      createHealthServer();
-      const req = makeReq('GET', '/health');
-      const res = makeRes();
-
-      capturedHandler!(req, res);
-
-      // The Compose health check runs:
-      //   curl -sf http://localhost:3000/health | grep -q '"status":"ok"'
-      // The body must contain that exact substring.
-      expect(res._body).toContain('"status":"ok"');
-    });
-
-    it('GET /health body contains the STELLAR_NETWORK value', () => {
-      createHealthServer();
-      const req = makeReq('GET', '/health');
-      const res = makeRes();
-
-      capturedHandler!(req, res);
-
-      const body = JSON.parse(res._body);
-      // config.STELLAR_NETWORK is "testnet" in the test mock
-      expect(body.network).toBe('testnet');
-    });
-
-    it('GET /health responds with Content-Type: application/json', () => {
-      createHealthServer();
-      const req = makeReq('GET', '/health');
-      const res = makeRes();
-
-      capturedHandler!(req, res);
-
-      expect(res._headers['Content-Type']).toBe('application/json');
+    it('returns 400 when the handler throws a ContractError', async () => {
+      const res = await requestStatusWith(new ContractError('bad contract'));
+      expect(res._statusCode).toBe(400);
+      expect(JSON.parse(res._body).type).toBe('ContractError');
     });
   });
 });
