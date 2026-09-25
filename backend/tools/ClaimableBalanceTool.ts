@@ -23,10 +23,23 @@ import { SubmitResultSchema } from './StellarPaymentTool';
 import { SOROBAN_TX_TIMEOUT } from './SorobanInvokeTool';
 import { stellarPublicKeySchema } from '../utils/stellarSchemas';
 
-const ClaimPredicateSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('unconditional') }),
-  z.object({ type: z.literal('beforeAbsoluteTime'), timestamp: z.number().int().positive() }),
-]);
+const ClaimPredicateSchema: z.ZodType<
+  | { type: 'unconditional' }
+  | { type: 'beforeAbsoluteTime'; timestamp: number }
+  | { type: 'beforeRelativeTime'; seconds: number }
+  | { type: 'not'; predicate: z.infer<typeof ClaimPredicateSchema> }
+  | { type: 'and'; predicates: z.infer<typeof ClaimPredicateSchema>[] }
+  | { type: 'or'; predicates: z.infer<typeof ClaimPredicateSchema>[] }
+> = z.lazy(() =>
+  z.discriminatedUnion('type', [
+    z.object({ type: z.literal('unconditional') }),
+    z.object({ type: z.literal('beforeAbsoluteTime'), timestamp: z.number().int().positive() }),
+    z.object({ type: z.literal('beforeRelativeTime'), seconds: z.number().int().positive() }),
+    z.object({ type: z.literal('not'), predicate: ClaimPredicateSchema }),
+    z.object({ type: z.literal('and'), predicates: z.array(ClaimPredicateSchema).min(1) }),
+    z.object({ type: z.literal('or'), predicates: z.array(ClaimPredicateSchema).min(1) }),
+  ])
+);
 
 const ClaimantSchema = z.object({
   destination: stellarPublicKeySchema('Claimant public key'),
@@ -59,7 +72,19 @@ function buildPredicate(
   if (!predicate || predicate.type === 'unconditional') {
     return Claimant.predicateUnconditional();
   }
-  return Claimant.predicateBeforeAbsoluteTime(String(predicate.timestamp));
+
+  switch (predicate.type) {
+    case 'beforeAbsoluteTime':
+      return Claimant.predicateBeforeAbsoluteTime(String(predicate.timestamp));
+    case 'beforeRelativeTime':
+      return Claimant.predicateBeforeRelativeTime(String(predicate.seconds));
+    case 'not':
+      return Claimant.predicateNot(buildPredicate(predicate.predicate));
+    case 'and':
+      return Claimant.predicateAnd(predicate.predicates.map(buildPredicate));
+    case 'or':
+      return Claimant.predicateOr(predicate.predicates.map(buildPredicate));
+  }
 }
 
 export class ClaimableBalanceTool {

@@ -5,6 +5,7 @@
 
 import { config } from '../config';
 import { loadAccount } from '../rpc_client';
+import { getTypedBalances } from './balanceHelpers';
 
 export interface AccountInfo {
   publicKey: string;
@@ -17,8 +18,8 @@ export class AccountInfoTool {
   async fetch(): Promise<AccountInfo> {
     const account = await loadAccount(config.AGENT_PUBLIC_KEY);
 
-    const balances = (account.balances as any[]).map((b) => ({
-      asset: b.asset_type === 'native' ? 'XLM' : `${b.asset_code}:${b.asset_issuer}`,
+    const balances = getTypedBalances(account).map((b) => ({
+      asset: b.assetType === 'native' ? 'XLM' : `${b.assetCode}:${b.assetIssuer}`,
       balance: b.balance,
     }));
 

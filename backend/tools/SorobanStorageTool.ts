@@ -57,10 +57,18 @@ export const SorobanStorageInputSchema = z.object({
 
   /**
    * Keys to query in storage. Can be ScVal instances or native values.
+   *
+   * **Note:** When `durability` is `'instance'`, the SDK ignores the provided keys
+   * and always returns the contract instance entry. Passing multiple keys in this
+   * case will all map to the same result.
    */
   keys: z
     .array(z.union([z.instanceof(xdr.ScVal), z.unknown()]))
-    .min(1, 'At least one storage key must be specified'),
+    .min(1, 'At least one storage key must be specified')
+    .max(
+      1,
+      'Instance durability returns a single entry; passing multiple keys will produce duplicates'
+    ),
 
   /** Storage durability type: defaults to persistent. */
   durability: z.enum(['persistent', 'temporary', 'instance']).default('persistent'),
