@@ -516,3 +516,8 @@ if (result.success) {
 ```
 
 See [`backend/agent.ts`](./backend/agent.ts) for task dispatch and the spending-limit guard, and [`backend/tools/X402PaymentTool.ts`](./backend/tools/X402PaymentTool.ts) for challenge validation and proof construction.
+
+## Handsoff notes
+
+<!-- handsoff-issue-625 -->
+- #625: `bug_report.md`'s "Affected File / Module" checklist only lists 3 of 34 tool files
