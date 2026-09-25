@@ -16,6 +16,7 @@ vi.mock('../backend/rpc_client', () => ({
   },
   sorobanServer: {},
   resolveNetworkPassphrase: vi.fn(() => 'Test SDF Network ; September 2015'),
+  withRetry: vi.fn(async (fn: () => unknown) => fn()),
 }));
 
 vi.mock('../backend/config', () => {
@@ -26,6 +27,8 @@ vi.mock('../backend/config', () => {
       STELLAR_NETWORK: 'testnet',
       AGENT_PUBLIC_KEY: Keypair.fromSecret(secret).publicKey(),
       agentKeypair: () => Keypair.fromSecret(secret),
+      MAX_RETRIES: 3,
+      RETRY_DELAY_MS: 100,
     },
   };
 });
@@ -102,6 +105,57 @@ describe('ClaimableBalanceTool', () => {
 
     await expect(tool.execute({ action: 'claim', balanceId: BALANCE_ID })).rejects.toThrow(
       'Agent is not a claimant'
+    );
+  });
+
+  it('retries claimant verification on transient failure', async () => {
+    let attempts = 0;
+    const mockCall = vi.fn().mockImplementation(async () => {
+      attempts++;
+      if (attempts === 1) {
+        throw new Error('503 Service Unavailable');
+      }
+      return { records: [{ id: BALANCE_ID }] };
+    });
+
+    vi.mocked(rpcClient.horizonServer.claimableBalances).mockReturnValue({
+      claimant: vi.fn().mockReturnValue({
+        call: mockCall,
+      }),
+    } as any);
+
+    vi.mocked(rpcClient.withRetry).mockImplementation(async (fn: () => unknown) => {
+      try {
+        return await fn();
+      } catch {
+        return await fn();
+      }
+    });
+
+    const result = await tool.execute({ action: 'claim', balanceId: BALANCE_ID });
+
+    expect(result.txHash).toBe('cb_hash');
+    expect(rpcClient.withRetry).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.any(Number),
+      expect.any(Number)
+    );
+    expect(mockCall).toHaveBeenCalledTimes(2);
+  });
+
+  it('propagates error when claimant verification fails after retries', async () => {
+    vi.mocked(rpcClient.horizonServer.claimableBalances).mockReturnValue({
+      claimant: vi.fn().mockReturnValue({
+        call: vi.fn().mockRejectedValue(new Error('RPC rate limit exceeded')),
+      }),
+    } as any);
+
+    vi.mocked(rpcClient.withRetry).mockImplementation(async (fn: () => unknown) => {
+      return await fn();
+    });
+
+    await expect(tool.execute({ action: 'claim', balanceId: BALANCE_ID })).rejects.toThrow(
+      'RPC rate limit exceeded'
     );
   });
 
