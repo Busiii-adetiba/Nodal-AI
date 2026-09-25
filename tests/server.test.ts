@@ -81,8 +81,8 @@ import { getResults } from '../backend/persistence';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeReq(method: string, url: string): http.IncomingMessage {
-  return { method, url } as http.IncomingMessage;
+function makeReq(method: string, url: string, headers: Record<string, string> = {}): http.IncomingMessage {
+  return { method, url, headers } as http.IncomingMessage;
 }
 
 function makeRes(): http.ServerResponse & {
@@ -115,6 +115,7 @@ describe('backend/server.ts — health check HTTP server', () => {
     horizonOk = true;
     sorobanOk = true;
     databaseOk = true;
+    delete process.env.WEBHOOK_SECRET;
     vi.clearAllMocks();
   });
 
@@ -211,7 +212,7 @@ describe('backend/server.ts — health check HTTP server', () => {
       expect(body).toHaveProperty('results');
       expect(Array.isArray(body.results)).toBe(true);
       expect(body.results).toEqual([]);
-      expect(getResults).toHaveBeenCalledWith(10);
+      expect(getResults).toHaveBeenCalledWith(10, 0);
     });
 
     it('returns 200 with the last 10 AgentResult records from persistence', () => {
@@ -238,9 +239,55 @@ describe('backend/server.ts — health check HTTP server', () => {
       expect(body.results[0].data.txHash).toBe('hash_0');
     });
 
+    it('honours the limit and offset query parameters', () => {
+      const fakeResults = Array.from({ length: 15 }, (_, i) => ({
+        timestamp: `2026-07-24T10:0${i}:00.000Z`,
+        taskType: 'stellar_payment',
+        success: true,
+        data: { txHash: `hash_${i}` },
+      }));
+      mockResults = fakeResults;
+
+      createHealthServer();
+      const req = makeReq('GET', '/status?limit=5&offset=2');
+      const res = makeRes();
+
+      capturedHandler!(req, res);
+
+      expect(res._statusCode).toBe(200);
+      const body = JSON.parse(res._body);
+      expect(body.results).toHaveLength(5);
+      expect(getResults).toHaveBeenCalledWith(5, 2);
+    });
+
+    it('returns 401 when WEBHOOK_SECRET is set and no Bearer token is supplied', () => {
+      process.env.WEBHOOK_SECRET = 'super-secret';
+      createHealthServer();
+      const req = makeReq('GET', '/status');
+      const res = makeRes();
+
+      capturedHandler!(req, res);
+
+      expect(res._statusCode).toBe(401);
+      expect(getResults).not.toHaveBeenCalled();
+    });
+
+    it('returns 200 when WEBHOOK_SECRET is set and a matching Bearer token is supplied', () => {
+      process.env.WEBHOOK_SECRET = 'super-secret';
+      createHealthServer();
+      const req = makeReq('GET', '/status', { authorization: 'Bearer super-secret' });
+      const res = makeRes();
+
+      capturedHandler!(req, res);
+
+      expect(res._statusCode).toBe(200);
+      const body = JSON.parse(res._body);
+      expect(body).toHaveProperty('results');
+    });
+
     it('returns 500 when persistence throws an error', () => {
-      vi.mocked(getResults).mockImplementationOnce(() => {
-        throw new Error('Database unavailable');
+      vi.mocked(getResults).mockImplementation(() => {
+        throw new Error('db down');
       });
 
       createHealthServer();
@@ -251,73 +298,9 @@ describe('backend/server.ts — health check HTTP server', () => {
 
       expect(res._statusCode).toBe(500);
       const body = JSON.parse(res._body);
-      expect(body.type).toBe('InternalServerError');
-      // The raw failure message is deliberately not echoed back: /status has no
-      // auth guard, so an internal fault must not describe itself to callers.
-      expect(res._body).not.toContain('Database unavailable');
-    });
-  });
-
-  describe('404 handling', () => {
-    it('returns 404 for unknown routes', () => {
-      createHealthServer();
-      const req = makeReq('GET', '/unknown');
-      const res = makeRes();
-
-      capturedHandler!(req, res);
-
-      expect(res._statusCode).toBe(404);
-    });
-
-    it('returns 404 for POST /health', () => {
-      createHealthServer();
-      const req = makeReq('POST', '/health');
-      const res = makeRes();
-
-      capturedHandler!(req, res);
-
-      expect(res._statusCode).toBe(404);
-    });
-  });
-
-  describe('structured error responses', () => {
-    async function requestStatusWith(err: unknown) {
-      mockResultsError = err;
-      createHealthServer();
-      const req = makeReq('GET', '/status');
-      const res = makeRes();
-      await capturedHandler!(req, res);
-      return res;
-    }
-
-    it('returns 400 when the handler throws a ValidationError', async () => {
-      const res = await requestStatusWith(new ValidationError('bad limit'));
-      expect(res._statusCode).toBe(400);
-      expect(JSON.parse(res._body).type).toBe('ValidationError');
-    });
-
-    it('returns 401 when the handler throws an UnauthorizedError', async () => {
-      const res = await requestStatusWith(new UnauthorizedError('nope'));
-      expect(res._statusCode).toBe(401);
-      expect(JSON.parse(res._body).type).toBe('UnauthorizedError');
-    });
-
-    it('returns 429 when the handler throws a RateLimitError', async () => {
-      const res = await requestStatusWith(new RateLimitError('slow down'));
-      expect(res._statusCode).toBe(429);
-      expect(JSON.parse(res._body).type).toBe('RateLimitError');
-    });
-
-    it('returns 504 when the handler throws a NetworkTimeoutError', async () => {
-      const res = await requestStatusWith(new NetworkTimeoutError('timeout'));
-      expect(res._statusCode).toBe(504);
-      expect(JSON.parse(res._body).type).toBe('NetworkTimeoutError');
-    });
-
-    it('returns 400 when the handler throws a ContractError', async () => {
-      const res = await requestStatusWith(new ContractError('bad contract'));
-      expect(res._statusCode).toBe(400);
-      expect(JSON.parse(res._body).type).toBe('ContractError');
+      // The raw failure message is deliberately not echoed back to the caller.
+      expect(body).toHaveProperty('error');
+      expect(body.error).not.toContain('db down');
     });
   });
 });

@@ -135,30 +135,13 @@ export function createHealthServer(): http.Server {
     }
 
     // ── GET /status ────────────────────────────────────────────────────────
-    if (req.method === 'GET' && req.url === STATUS_PATH) {
-      try {
-        const results = getResults(10);
-        const body = JSON.stringify({ results });
-
-        res.writeHead(200, {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body),
-        });
-        res.end(body);
-      } catch (err) {
-        // Route through the shared handler so a StructuredError gets the status
-        // code that describes it instead of a blanket 500 - and so an internal
-        // fault's message is not echoed to an unauthenticated caller.
-        const errorResponse = handleError(err);
-        const body = JSON.stringify(errorResponse);
-
-        res.writeHead(errorResponse.status, {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body),
-          ...errorResponse.headers,
-        });
-        res.end(body);
-      }
+    // Delegates to handleResults(), which enforces Bearer-token auth when
+    // WEBHOOK_SECRET is set and honours `limit`/`offset` query parameters.
+    // The previous inline branch served persisted results with no auth guard
+    // and a hardcoded `getResults(10)`.
+    if (req.method === 'GET' && req.url?.split('?')[0] === STATUS_PATH) {
+      const parsedUrl = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
+      void handleResults(req, res, parsedUrl);
       return;
     }
 
@@ -242,16 +225,6 @@ async function handleHealth(_req: http.IncomingMessage, res: http.ServerResponse
   } catch (err) {
     const errorResponse = handleError(err);
     log.error({
-      msg: 'Unhandled request error',
-      status: errorResponse.status,
-      type: errorResponse.type,
-    });
-    const body = JSON.stringify(errorResponse);
-    res.writeHead(errorResponse.status, {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(body),
-      ...errorResponse.headers,
-    });
-    res.end(body);
-  }
-}
+      msg: 'Unha
+
+/* … truncated 344 chars — edit only what you need near the top … */
