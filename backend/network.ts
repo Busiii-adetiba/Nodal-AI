@@ -5,7 +5,6 @@
  * Detects HTTP 429 responses, extracts Retry-After, and pauses outbound traffic.
  */
 
-import { logger } from './logger';
 import { createLogger } from './utils/logger';
 
 const log = createLogger('network');
